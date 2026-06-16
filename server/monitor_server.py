@@ -22,7 +22,7 @@ class StatusStore:
             self._windows.pop(session_id, None)
             return
 
-        # SessionStart / heartbeat：仅确保窗口存在并刷新活跃度，不降级已有状态
+        # SessionStart / heartbeat：确保窗口存在并刷新活跃度
         if status in ("start", "heartbeat"):
             if win is None:
                 # start -> 就绪(done)；heartbeat 收到未知会话 -> 视为运行中
@@ -31,10 +31,21 @@ class StatusStore:
                     "id": session_id, "status": initial,
                     "name": name, "run_started": now, "last_seen": now,
                 }
-            else:
-                win["last_seen"] = now
-                if cwd:
-                    win["name"] = name
+                return
+            win["last_seen"] = now
+            if cwd:
+                win["name"] = name
+            # PostToolUse 心跳兜底识别「新一轮」：有些 CLI 不发 UserPromptSubmit，
+            # 否则计时会一直从启动算（显示成「启动时间」而非当前任务时长）。
+            if status == "heartbeat":
+                if win["status"] == "done":
+                    # 上一轮已结束后又出现工具调用 = 新一轮开始 -> 转 running 并重锚计时
+                    win["status"] = "running"
+                    win["run_started"] = now
+                elif win["status"] == "waiting":
+                    # 等待(权限确认)被批准后继续同一轮 -> 转回 running，但不重置计时
+                    win["status"] = "running"
+            # SessionStart(start) 落到已存在窗口：仅刷新活跃度，不降级状态/不重置计时
             return
 
         if status == "running":

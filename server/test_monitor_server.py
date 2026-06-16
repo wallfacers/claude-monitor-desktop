@@ -119,6 +119,28 @@ class StatusStoreTest(unittest.TestCase):
         self.assertEqual(win["run_sec"], 500)
         self.assertEqual(win["idle_sec"], 500)
 
+    def test_heartbeat_after_done_starts_new_turn_and_reanchors_timer(self):
+        # 兜底：上一轮 done 后又有工具心跳 = 新一轮，转 running 并从此刻重锚计时
+        # （应对不发 UserPromptSubmit、否则计时一直显示「启动时间」的 CLI）
+        store = StatusStore(stale_sec=600)
+        store.update("s1", "done", "/tmp/a", now=1000.0)
+        store.update("s1", "heartbeat", "/tmp/a", now=1200.0)
+
+        win = store.get_state(now=1200.0)["windows"][0]
+        self.assertEqual(win["status"], "running")
+        self.assertEqual(win["run_sec"], 0)
+
+    def test_heartbeat_after_waiting_resumes_running_without_reset(self):
+        # 待确认(权限)被批准后继续工具调用 = 同一轮：转回 running 但不重置计时
+        store = StatusStore(stale_sec=600)
+        store.update("s1", "running", "/tmp/a", now=1000.0)
+        store.update("s1", "waiting", "/tmp/a", now=1050.0)
+        store.update("s1", "heartbeat", "/tmp/a", now=1100.0)
+
+        win = store.get_state(now=1100.0)["windows"][0]
+        self.assertEqual(win["status"], "running")
+        self.assertEqual(win["run_sec"], 100)  # 仍从 1000 起算
+
     def test_heartbeat_for_unknown_session_creates_running(self):
         store = StatusStore(stale_sec=600)
         store.update("s9", "heartbeat", "/tmp/a", now=1000.0)
