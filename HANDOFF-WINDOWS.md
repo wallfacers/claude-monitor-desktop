@@ -22,7 +22,7 @@ Claude Code(WSL/Windows)  ──hook POST 8787──▶  monitor_server.py(Windo
 
 | 项 | 值 |
 |---|---|
-| 项目位置(Windows) | `D:\project\java\source\claude-monitor-desktop` |
+| 项目位置(Windows) | `D:\develop\java\source\claude-monitor-desktop` |
 | 后端脚本 | 随项目 `server\monitor_server.py`（纯 stdlib，Tauri 会原生 spawn） |
 | 服务地址 | `127.0.0.1:8787` |
 | Windows python | 已验证 3.13.5；Tauri 用命令名 `python`（若你用 Python Launcher，把 `src-tauri/src/lib.rs` 的 `python_bin()` 改成 `"py"`） |
@@ -49,7 +49,7 @@ Claude Code(WSL/Windows)  ──hook POST 8787──▶  monitor_server.py(Windo
 ## 构建与验证（Windows）
 
 ```powershell
-cd D:\project\java\source\claude-monitor-desktop
+cd D:\develop\java\source\claude-monitor-desktop
 git fetch origin; git reset --hard origin/main   # 同步最新（主线已合并到 main）
 npm install          # 装 @tauri-apps/cli
 
@@ -84,12 +84,12 @@ WSL 的 claude 已上报。Windows 的 claude 要单独配 hooks，用 `hooks/re
 ```json
 {
   "hooks": {
-    "SessionStart":     [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "UserPromptSubmit": [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "PostToolUse":      [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "Notification":     [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "Stop":             [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "SessionEnd":       [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ]
+    "SessionStart":     [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "UserPromptSubmit": [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "PostToolUse":      [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "Notification":     [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "Stop":             [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "SessionEnd":       [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ]
   }
 }
 ```
