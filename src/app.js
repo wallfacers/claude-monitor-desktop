@@ -86,5 +86,13 @@ async function tick() {
   }
 }
 
+// Tauri 事件：鼠标穿透开启时降低不透明度作视觉提示。
+// 用全局 __TAURI__（tauri.conf withGlobalTauri）；浏览器预览下无此对象，自动跳过。
+if (window.__TAURI__?.event?.listen) {
+  window.__TAURI__.event.listen("passthrough", (e) => {
+    document.documentElement.style.opacity = e.payload ? "0.55" : "1";
+  });
+}
+
 setInterval(tick, POLL_MS);
 tick();
