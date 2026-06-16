@@ -12,17 +12,18 @@ html,body{background:transparent;overflow:hidden}
 /* 缩放(收起) ↔ 详细(展开) 切换动效：scale + fade */
 #minibar,#panel{transition:opacity .16s ease, transform .16s ease;transform-origin:top left}
 .mode-enter{opacity:0;transform:scale(.9)}
-/* 整个药丸都是拖动区(data-tauri-drag-region)，所以 cursor:move */
+/* 拖动区用抓手光标(grab/grabbing)，不用丑丑的十字(move) */
 /* 投影扩散半径(≈blur+|offset|) 必须 ≤ #app padding(16px)，否则被窗口直角边裁切出虚影 */
-.minibar{display:inline-flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;border-radius:999px;cursor:move;
+.minibar{display:inline-flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;border-radius:999px;cursor:grab;
   background:rgba(20,23,30,.72);border:1px solid rgba(255,255,255,.14);box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.minibar:active,.phead-top:active{cursor:grabbing}
 .segs{display:flex;align-items:center;gap:2px}
 .hbtns{display:flex;align-items:center;gap:8px}
 /* 通用小图标按钮（展开 ▾ / 收起 ✕）：不是拖动区，可点击；flex 居中对齐 */
 .iconbtn{display:flex;align-items:center;justify-content:center;width:20px;height:20px;
   cursor:pointer;color:var(--dim);font-size:15px;line-height:1;border-radius:6px;user-select:none}
 .iconbtn:hover{color:var(--txt);background:rgba(255,255,255,.1)}
-.phead-top{cursor:move}
+.phead-top{cursor:grab}
 /* 整条药丸/标题栏都可拖：内部装饰元素不吃鼠标，事件落到拖动区；仅图标按钮可点 */
 .minibar > *, .phead-top > *{pointer-events:none}
 .minibar .iconbtn, .phead-top .iconbtn{pointer-events:auto}

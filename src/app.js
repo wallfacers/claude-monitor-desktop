@@ -20,7 +20,44 @@ const panel = $("#panel");
 const minibar = $("#minibar");
 const rowsEl = $("#rows");
 const offlineEl = $("#offline");
-const ding = $("#ding");
+
+// ---- 提示音：用 Web Audio 合成，无需音频文件，且能区分听感 ----
+let audioCtx = null;
+// 浏览器/WebView 自动播放策略：AudioContext 需用户手势解锁。首个手势后即可发声。
+function unlockAudio() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audioCtx = audioCtx || new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) {}
+}
+// 单个音符：正弦波 + 渐入渐出，柔和不刺耳。
+function tone(freq, dur, gain, delay = 0) {
+  try {
+    if (!audioCtx) unlockAudio();
+    if (!audioCtx) return;
+    const t0 = audioCtx.currentTime + delay;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  } catch (e) {}
+}
+// 完成：轻短高音单「叮」。待确认：更明显的下行双音「叮咚」。
+const chimeDone = () => tone(1320, 0.11, 0.035);
+const chimeWaiting = () => {
+  tone(988, 0.14, 0.06); // 高
+  tone(740, 0.2, 0.06, 0.13); // → 低，经典「叮咚」
+};
+// 任意一次窗口交互即解锁音频（拖动/点击）。
+window.addEventListener("pointerdown", unlockAudio, { once: false });
 
 // ---- Tauri 窗口：自适应尺寸（无 Tauri 时，如浏览器预览，自动跳过） ----
 const TW = window.__TAURI__ && window.__TAURI__.window;
@@ -156,7 +193,7 @@ async function tick() {
         base + freshDone.length * DONE_FLASH_MS,
         Date.now() + DONE_FLASH_MAX_MS,
       );
-      ding.play().catch(() => {});
+      chimeDone(); // 轻短「叮」
     }
     prevDone = doneIds;
 
@@ -164,7 +201,7 @@ async function tick() {
 
     const freshActive = freshWaiting.filter((id) => !muted.has(id));
     if (freshActive.length > 0) {
-      ding.play().catch(() => {}); // 声音（默认开），已消音的不响
+      chimeWaiting(); // 「叮咚」双音（默认开），已消音的不响
       setExpanded(true); // 有新待确认 -> 自动展开
     }
     prevWaiting = waitingIds;
