@@ -32,6 +32,8 @@ html,body{background:transparent;overflow:hidden}
 /* 任务完成：短暂闪蓝（JS 到点移除 .done-alert）；与待确认黄闪区分，闪烁环 ≤8px 不被窗口裁切 */
 .minibar.done-alert{border-color:var(--done);animation:flashDone 1s infinite}
 @keyframes flashDone{0%,100%{box-shadow:0 0 0 0 rgba(74,168,255,.7)}50%{box-shadow:0 0 0 8px rgba(74,168,255,0)}}
+/* 完成闪烁时给完成段加蓝底+蓝字+跳点，醒目度对齐待确认黄段（只是蓝色且短暂） */
+.minibar.done-alert .seg.done{background:rgba(74,168,255,.2);color:var(--done)}
 .minibar.done-alert .seg.done .sd{animation:blink .8s infinite}
 .seg{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:13px;font-weight:700;color:var(--txt)}
 .seg .sd{width:9px;height:9px;border-radius:50%}
