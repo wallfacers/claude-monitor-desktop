@@ -28,6 +28,10 @@ html,body{background:transparent;overflow:hidden}
 .minibar .iconbtn, .phead-top .iconbtn{pointer-events:auto}
 .minibar.alert{border-color:var(--waiting);animation:flash 1s infinite}
 @keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(255,200,61,.7)}50%{box-shadow:0 0 0 8px rgba(255,200,61,0)}}
+/* 任务完成：短暂闪蓝（JS 到点移除 .done-alert）；与待确认黄闪区分，闪烁环 ≤8px 不被窗口裁切 */
+.minibar.done-alert{border-color:var(--done);animation:flashDone 1s infinite}
+@keyframes flashDone{0%,100%{box-shadow:0 0 0 0 rgba(74,168,255,.7)}50%{box-shadow:0 0 0 8px rgba(74,168,255,0)}}
+.minibar.done-alert .seg.done .sd{animation:blink .8s infinite}
 .seg{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:13px;font-weight:700;color:var(--txt)}
 .seg .sd{width:9px;height:9px;border-radius:50%}
 .seg.running .sd{background:var(--running);box-shadow:0 0 6px var(--running)}

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatDuration, buildViewModel, newlyWaiting, statusLabel } from "./render.js";
+import { formatDuration, buildViewModel, newlyWaiting, newlyDone, statusLabel } from "./render.js";
 
 test("formatDuration: 秒 -> m:ss", () => {
   assert.equal(formatDuration(0), "0:00");
@@ -90,6 +90,39 @@ test("newlyWaiting: 多窗口只挑新增", () => {
   };
   const r = newlyWaiting(["c"], state);
   assert.deepEqual(r.freshWaiting, ["e"]);
+});
+
+test("newlyDone: 首次出现的 done 触发", () => {
+  const state = { windows: [{ id: "d", status: "done" }] };
+  const r = newlyDone([], state);
+  assert.deepEqual(r.freshDone, ["d"]);
+  assert.deepEqual(r.doneIds, ["d"]);
+});
+
+test("newlyDone: 持续 done 不重复触发", () => {
+  const state = { windows: [{ id: "d", status: "done" }] };
+  const r = newlyDone(["d"], state);
+  assert.deepEqual(r.freshDone, []);
+  assert.deepEqual(r.doneIds, ["d"]);
+});
+
+test("newlyDone: 多窗口只挑新增完成", () => {
+  const state = {
+    windows: [
+      { id: "d", status: "done" },
+      { id: "e", status: "done" },
+      { id: "a", status: "running" },
+    ],
+  };
+  const r = newlyDone(["d"], state);
+  assert.deepEqual(r.freshDone, ["e"]);
+  assert.deepEqual(r.doneIds, ["d", "e"]);
+});
+
+test("newlyDone: 空状态安全", () => {
+  const r = newlyDone(["x"], null);
+  assert.deepEqual(r.freshDone, []);
+  assert.deepEqual(r.doneIds, []);
 });
 
 test("statusLabel 中文映射", () => {

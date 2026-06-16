@@ -42,6 +42,16 @@ export function newlyWaiting(prevWaitingIds, state) {
   return { freshWaiting, waitingIds };
 }
 
+// 新「完成」的会话（用于「任务完成」短暂闪烁提示）。逻辑同 newlyWaiting：
+// 只挑这次出现、上次没有的 done id；done -> running -> done 会再次算新完成。
+export function newlyDone(prevDoneIds, state) {
+  const wins = (state && Array.isArray(state.windows)) ? state.windows : [];
+  const doneIds = wins.filter((w) => w.status === "done").map((w) => w.id);
+  const prev = new Set(prevDoneIds);
+  const freshDone = doneIds.filter((id) => !prev.has(id));
+  return { freshDone, doneIds };
+}
+
 export function statusLabel(status) {
   return { running: "运行中", waiting: "待确认", done: "完成" }[status] || status;
 }

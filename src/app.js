@@ -1,14 +1,19 @@
-import { buildViewModel, newlyWaiting, statusLabel } from "./render.js";
+import { buildViewModel, newlyWaiting, newlyDone, statusLabel } from "./render.js";
 
 const POLL_MS = 1000;
 const STUCK_SEC = 600; // 10 分钟，后续可从设置读
 const STATE_URL = "http://localhost:8787/state";
+const DONE_FLASH_MS = 6000; // 单个任务完成贡献的闪烁时长
+const DONE_FLASH_MAX_MS = 30000; // 累加上限：多个完成时间累加但封顶，避免一直闪
 
 let prevWaiting = [];
 let panelOpen = false;
 const muted = new Set(); // 被「消音」的待确认 session id（如 Claude 已 Cooked 完成但报成 waiting）
 let lastVm = null;
 let lastWaitingIds = [];
+let prevDone = []; // 上一轮的完成 id（用于检测「新完成」）
+let seededDone = false; // 首次轮询只播种、不为已存在的完成补闪
+let doneFlashUntil = 0; // 完成闪烁截止时间戳（ms），多个完成累加
 
 const $ = (s) => document.querySelector(s);
 const panel = $("#panel");
@@ -47,10 +52,12 @@ function setExpanded(open) {
   });
 }
 
-// 重新评估「是否还有未消音的待确认」→ 控制收起条黄色闪烁。
+// 重新评估收起条闪烁：待确认（黄，持续，需操作）优先；否则完成（蓝，短暂，到点自动停）。
 function refreshAlert() {
-  const active = lastWaitingIds.filter((id) => !muted.has(id));
-  minibar.classList.toggle("alert", active.length > 0);
+  const waitingActive = lastWaitingIds.filter((id) => !muted.has(id)).length > 0;
+  const doneFlash = Date.now() < doneFlashUntil;
+  minibar.classList.toggle("alert", waitingActive);
+  minibar.classList.toggle("done-alert", !waitingActive && doneFlash);
 }
 
 function render(vm) {
@@ -138,6 +145,21 @@ async function tick() {
     // 不再 waiting 的 session 解除消音：下次再 waiting 会重新提醒。
     for (const id of [...muted]) if (!waitingIds.includes(id)) muted.delete(id);
     lastWaitingIds = waitingIds;
+
+    // 任务完成提示：新完成的会话让收起条短暂闪蓝（到点自动停）。多个完成时间累加，封顶。
+    const { freshDone, doneIds } = newlyDone(prevDone, state);
+    if (!seededDone) {
+      seededDone = true; // 首次轮询：已存在的完成不补闪，避免开窗刷屏
+    } else if (freshDone.length > 0) {
+      const base = Math.max(Date.now(), doneFlashUntil); // 已在闪则从当前截止点继续累加
+      doneFlashUntil = Math.min(
+        base + freshDone.length * DONE_FLASH_MS,
+        Date.now() + DONE_FLASH_MAX_MS,
+      );
+      ding.play().catch(() => {});
+    }
+    prevDone = doneIds;
+
     refreshAlert();
 
     const freshActive = freshWaiting.filter((id) => !muted.has(id));
