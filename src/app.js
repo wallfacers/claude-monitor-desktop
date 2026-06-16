@@ -6,6 +6,9 @@ const STATE_URL = "http://localhost:8787/state";
 
 let prevWaiting = [];
 let panelOpen = false;
+const muted = new Set(); // 被「消音」的待确认 session id（如 Claude 已 Cooked 完成但报成 waiting）
+let lastVm = null;
+let lastWaitingIds = [];
 
 const $ = (s) => document.querySelector(s);
 const panel = $("#panel");
@@ -41,6 +44,18 @@ function setExpanded(open) {
     fitWindow(); // 先按目标尺寸贴合窗口
     requestAnimationFrame(() => show.classList.remove("mode-enter")); // 再过渡到 1
   });
+}
+
+// 重新评估「是否还有未消音的待确认」→ 控制收起条黄色闪烁。
+function refreshAlert() {
+  const active = lastWaitingIds.filter((id) => !muted.has(id));
+  minibar.classList.toggle("alert", active.length > 0);
+}
+
+function render(vm) {
+  lastVm = vm;
+  setCounts(vm.counts);
+  renderRows(vm.rows);
 }
 
 function setCounts(counts) {
@@ -82,6 +97,25 @@ function renderRows(rows) {
       : "";
 
     div.append(dot, name, stat, timer);
+
+    // 待确认行：消音按钮（关掉响铃/闪烁，应对 Claude 已完成却报成 waiting 的情况）
+    if (r.status === "waiting") {
+      const on = muted.has(r.id);
+      div.classList.toggle("muted", on);
+      const mb = document.createElement("div");
+      mb.className = "muteb" + (on ? " on" : "");
+      mb.textContent = on ? "🔕" : "🔔";
+      mb.title = on ? "已消音，点击恢复提示" : "消音（不再响铃/闪烁）";
+      mb.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (muted.has(r.id)) muted.delete(r.id);
+        else muted.add(r.id);
+        if (lastVm) render(lastVm);
+        refreshAlert();
+      });
+      div.append(mb);
+    }
+
     rowsEl.appendChild(div);
   });
 }
@@ -97,13 +131,17 @@ async function tick() {
     offlineEl.hidden = true;
 
     const vm = buildViewModel(state, STUCK_SEC);
-    setCounts(vm.counts);
-    renderRows(vm.rows);
+    render(vm);
 
     const { freshWaiting, waitingIds } = newlyWaiting(prevWaiting, state);
-    minibar.classList.toggle("alert", waitingIds.length > 0);
-    if (freshWaiting.length > 0) {
-      ding.play().catch(() => {}); // 声音（默认开）
+    // 不再 waiting 的 session 解除消音：下次再 waiting 会重新提醒。
+    for (const id of [...muted]) if (!waitingIds.includes(id)) muted.delete(id);
+    lastWaitingIds = waitingIds;
+    refreshAlert();
+
+    const freshActive = freshWaiting.filter((id) => !muted.has(id));
+    if (freshActive.length > 0) {
+      ding.play().catch(() => {}); // 声音（默认开），已消音的不响
       setExpanded(true); // 有新待确认 -> 自动展开
     }
     prevWaiting = waitingIds;

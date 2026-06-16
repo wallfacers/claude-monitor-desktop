@@ -16,8 +16,9 @@ html,body{background:transparent;overflow:hidden}
   background:rgba(20,23,30,.72);border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.5)}
 .segs{display:flex;align-items:center;gap:2px}
 .hbtns{display:flex;align-items:center;gap:8px}
-/* 通用小图标按钮（展开 ⌄ / 收起 ✕）：不是拖动区，可点击 */
-.iconbtn{cursor:pointer;color:var(--dim);font-size:13px;line-height:1;padding:2px 5px;border-radius:6px;user-select:none}
+/* 通用小图标按钮（展开 ▾ / 收起 ✕）：不是拖动区，可点击；flex 居中对齐 */
+.iconbtn{display:flex;align-items:center;justify-content:center;width:20px;height:20px;
+  cursor:pointer;color:var(--dim);font-size:15px;line-height:1;border-radius:6px;user-select:none}
 .iconbtn:hover{color:var(--txt);background:rgba(255,255,255,.1)}
 .phead-top{cursor:move}
 /* 整条药丸/标题栏都可拖：内部装饰元素不吃鼠标，事件落到拖动区；仅图标按钮可点 */
@@ -44,6 +45,11 @@ html,body{background:transparent;overflow:hidden}
 .rows{padding:6px}
 .row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px}
 .row.alert{background:rgba(255,200,61,.12);border:1px solid rgba(255,200,61,.4)}
+/* 已消音的待确认行：去掉高亮/闪烁，淡化 */
+.row.muted{background:transparent;border-color:transparent;opacity:.6}
+.row.muted .dot.waiting{animation:none}
+.muteb{cursor:pointer;font-size:12px;line-height:1;flex:0 0 auto;opacity:.85;user-select:none}
+.muteb:hover{opacity:1}
 .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
 .dot.running{background:var(--running);box-shadow:0 0 8px var(--running)}
 .dot.waiting{background:var(--waiting)} .row .dot.waiting{animation:blink .8s infinite}
