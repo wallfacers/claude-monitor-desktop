@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="collapsed">
+    <div id="minibar" class="minibar">
+      <div class="seg running"><div class="sd"></div><span data-count="running">0</span></div>
+      <div class="seg waiting"><div class="sd"></div><span data-count="waiting">0</span></div>
+      <div class="seg done"><div class="sd"></div><span data-count="done">0</span></div>
+    </div>
+    <div id="panel" class="panel" hidden>
+      <div class="phead">
+        <div class="phead-top"><div class="t">Claude Code 监控</div><div id="offline" class="off" hidden>离线</div></div>
+        <div class="agg">
+          <span class="cnt waiting"><div class="dot waiting"></div><b data-count="waiting">0</b>待确认</span>
+          <span class="cnt running"><div class="dot running"></div><b data-count="running">0</b>运行</span>
+          <span class="cnt done"><div class="dot done"></div><b data-count="done">0</b>完成</span>
+        </div>
+      </div>
+      <div id="rows" class="rows"></div>
+    </div>
+  </div>
+  <audio id="ding" src="ding.mp3" preload="auto"></audio>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

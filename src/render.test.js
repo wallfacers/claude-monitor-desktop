@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatDuration, buildViewModel, newlyWaiting } from "./render.js";
+import { formatDuration, buildViewModel, newlyWaiting, statusLabel } from "./render.js";
 
 test("formatDuration: 秒 -> m:ss", () => {
   assert.equal(formatDuration(0), "0:00");
@@ -84,4 +84,10 @@ test("newlyWaiting: 多窗口只挑新增", () => {
   };
   const r = newlyWaiting(["c"], state);
   assert.deepEqual(r.freshWaiting, ["e"]);
+});
+
+test("statusLabel 中文映射", () => {
+  assert.equal(statusLabel("running"), "运行中");
+  assert.equal(statusLabel("waiting"), "待确认");
+  assert.equal(statusLabel("done"), "完成");
 });

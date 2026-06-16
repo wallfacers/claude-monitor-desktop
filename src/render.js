@@ -40,3 +40,7 @@ export function newlyWaiting(prevWaitingIds, state) {
   const freshWaiting = waitingIds.filter((id) => !prev.has(id));
   return { freshWaiting, waitingIds };
 }
+
+export function statusLabel(status) {
+  return { running: "运行中", waiting: "待确认", done: "完成" }[status] || status;
+}
