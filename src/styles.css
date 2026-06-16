@@ -7,13 +7,15 @@ html,body{background:transparent;overflow:hidden}
 ::-webkit-scrollbar{width:0;height:0;background:transparent}
 /* 不要用 backdrop-filter：透明窗口里它没有桌面可模糊，WebView2 会回退成不透明灰块。
    用纯半透明 rgba 背景，桌面/后面的窗口能真正透出来。 */
-#app{padding:10px;display:inline-block}
+/* padding = 窗口四周透明留白，必须 ≥ 投影/闪烁环的扩散半径，否则投影被窗口直角边裁切成「虚影」 */
+#app{padding:16px;display:inline-block}
 /* 缩放(收起) ↔ 详细(展开) 切换动效：scale + fade */
 #minibar,#panel{transition:opacity .16s ease, transform .16s ease;transform-origin:top left}
 .mode-enter{opacity:0;transform:scale(.9)}
 /* 整个药丸都是拖动区(data-tauri-drag-region)，所以 cursor:move */
+/* 投影扩散半径(≈blur+|offset|) 必须 ≤ #app padding(16px)，否则被窗口直角边裁切出虚影 */
 .minibar{display:inline-flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;border-radius:999px;cursor:move;
-  background:rgba(20,23,30,.72);border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.5)}
+  background:rgba(20,23,30,.72);border:1px solid rgba(255,255,255,.14);box-shadow:0 2px 8px rgba(0,0,0,.45)}
 .segs{display:flex;align-items:center;gap:2px}
 .hbtns{display:flex;align-items:center;gap:8px}
 /* 通用小图标按钮（展开 ▾ / 收起 ✕）：不是拖动区，可点击；flex 居中对齐 */
@@ -34,7 +36,7 @@ html,body{background:transparent;overflow:hidden}
 .seg.zero{opacity:.32}
 @keyframes blink{50%{opacity:.25}}
 .panel{width:280px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(18,21,28,.58);
-  box-shadow:0 12px 32px rgba(0,0,0,.45);overflow:hidden}
+  box-shadow:0 3px 12px rgba(0,0,0,.4);overflow:hidden}
 .phead{display:flex;flex-direction:column;gap:8px;padding:11px 13px;background:rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.08)}
 .phead-top{display:flex;align-items:center;justify-content:space-between}
 .phead .t{font-size:13px;font-weight:600;color:var(--txt)}

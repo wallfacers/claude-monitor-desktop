@@ -25,8 +25,9 @@ function fitWindow() {
   const el = panelOpen ? panel : minibar;
   if (!el || el.hidden) return;
   // 用 offset（布局尺寸，不受 transform 缩放影响）——动效进行中也测得准。
-  const w = el.offsetLeft + el.offsetWidth + 14;
-  const h = el.offsetTop + el.offsetHeight + 14;
+  // +16 与 #app padding 一致：四周留白对称，且容得下投影/闪烁环不被窗口直角边裁切。
+  const w = el.offsetLeft + el.offsetWidth + 16;
+  const h = el.offsetTop + el.offsetHeight + 16;
   TW.getCurrentWindow().setSize(new TW.LogicalSize(w, h)).catch(() => {});
 }
 
