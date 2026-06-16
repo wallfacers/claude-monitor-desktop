@@ -1062,46 +1062,40 @@ git commit -m "feat(desktop): tray menu (passthrough/ontop/quit) + autostart"
 
 ## Phase D — 后端拉起 + 打包 + 联调收尾
 
-### Task D1: 启动时确保 WSL 后端在跑（/healthz 探测 + wsl.exe 拉起）
+### Task D1: 启动时确保后端在跑（端口探活 + 原生 spawn python）
+
+> **修订（2026-06-16，实测后）：** 原方案「wsl.exe -d Ubuntu 拉起 WSL 内 server」作废 —— 后台进程随 wsl
+> 会话结束被回收。改为 **server 随桌面项目（`server/monitor_server.py`），Windows 原生 spawn python**。
+> WSL 侧只配 hooks，POST 到 `127.0.0.1:8787`（镜像网络已验证）。详见 `HANDOFF-WINDOWS.md`。
 
 **Files:**
-- Modify: `src-tauri/src/main.rs`（setup 中探活 + 拉起）
+- Modify: `src-tauri/src/main.rs`（setup 中探活 + 原生 spawn）
+- Modify: `src-tauri/tauri.conf.json`（`bundle.resources` 带上 server）
+- 已就绪：`server/monitor_server.py`（随项目）
 
-> ⚠️ 待核实（spec §8.1）：执行本 Task 前向用户确认三项并填入命令：
-> ① WSL 发行版名 `<DISTRO>`；② `monitor_server.py` 绝对路径；③ python 解释器（`python3` 或 conda 路径）。
-
-- [ ] **Step 1: 在 setup 中探活，不通则拉起**
-
-在 `src-tauri/src/main.rs` `setup` 加（值用待核实项替换占位）：
+- [ ] **Step 1: 端口未监听则原生 spawn python**
 
 ```rust
 use std::process::Command;
-// 探 /healthz；失败则用 wsl.exe 后台拉起 server
-let healthy = reqwest::blocking::get("http://localhost:8787/healthz")
-    .map(|r| r.status().is_success())
-    .unwrap_or(false);
+let healthy = std::net::TcpStream::connect(("127.0.0.1", 8787)).is_ok();
 if !healthy {
-    let _ = Command::new("wsl.exe")
-        .args([
-            "-d", "<DISTRO>",
-            "--", "bash", "-lc",
-            "nohup python3 /home/wushengzhou/workspace/github/claude-monitor/server/monitor_server.py >/tmp/monitor.log 2>&1 &",
-        ])
+    let _ = Command::new("python")           // 或 "py" + "-3"，视 Windows 安装
+        .arg("server/monitor_server.py")      // release 用 app.path().resolve_resource(...)
         .spawn();
 }
 ```
-`Cargo.toml` 加 `reqwest = { version = "0.12", features = ["blocking"] }`（仅用于一次性探活；若想零依赖，可改用 std `TcpStream` 连 8787 判断端口是否监听）。
+`tauri.conf.json` 加 `"bundle": { "resources": ["../server/monitor_server.py"] }`。零额外 Rust 依赖（std TcpStream）。
 
 - [ ] **Step 2: 手动验证**
 
-先确保 WSL 内 server 未运行（`pkill -f monitor_server.py`），再 `npm run tauri dev`。
-Expected: 数秒后悬浮窗从「离线」恢复为正常（说明被自动拉起）；`cat /tmp/monitor.log` 有启动日志。
+确保 8787 未被占用，`npm run tauri dev`。
+Expected: 悬浮窗几秒内从「离线」恢复正常（server 被原生拉起）。
 
 - [ ] **Step 3: 提交**
 
 ```bash
-git add src-tauri/src/main.rs src-tauri/Cargo.toml
-git commit -m "feat(desktop): ensure WSL backend up via healthz probe + wsl.exe"
+git add src-tauri/src/main.rs src-tauri/tauri.conf.json
+git commit -m "feat(desktop): spawn native python server on startup (port probe)"
 ```
 
 ---
