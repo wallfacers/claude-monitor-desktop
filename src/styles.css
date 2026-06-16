@@ -55,9 +55,9 @@ html,body{background:transparent;overflow:hidden}
 /* 任务完成：该行在展开详情里也蓝闪（JS 到点移除 .done-flash） */
 .row.done-flash{animation:rowFlashDone 1s ease-in-out infinite}
 @keyframes rowFlashDone{0%,100%{background:transparent}50%{background:rgba(74,168,255,.2)}}
-/* 运行中行：一键标记完成/清除 */
-.clearb{cursor:pointer;font-size:13px;line-height:1;flex:0 0 auto;color:var(--done);opacity:.65;user-select:none}
-.clearb:hover{opacity:1}
+/* 一键移除残留记录（取消/硬退出后仍显示的会话） */
+.clearb{cursor:pointer;font-size:13px;line-height:1;flex:0 0 auto;color:var(--dim);opacity:.6;user-select:none}
+.clearb:hover{opacity:1;color:var(--txt)}
 /* 已消音的待确认行：去掉高亮/闪烁，淡化 */
 .row.muted{background:transparent;border-color:transparent;opacity:.6}
 .row.muted .dot.waiting{animation:none}

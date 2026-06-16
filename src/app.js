@@ -175,16 +175,18 @@ function renderRows(rows) {
       div.append(mb);
     }
 
-    // 运行中行：一键「标记完成/清除」——应对 ESC 取消/打断后会话卡在运行中
-    // （Claude Code 打断不发任何 hook，监控收不到信号，只能手动清）。
-    if (r.status === "running") {
+    // 运行中/完成行：一键「移除该记录」。应对两种监控收不到信号的情况：
+    //  - ESC 取消/打断（Claude Code 打断不发任何 hook）
+    //  - 硬关闭终端 / kill-9（不发 SessionEnd）
+    // 移除是安全的：真活着的会话下次有 hook 回调会自动重新登记回来。
+    if (r.status === "running" || r.status === "done") {
       const cb = document.createElement("div");
       cb.className = "clearb";
-      cb.textContent = "✓";
-      cb.title = "标记完成/清除（用于已取消但仍显示运行中的会话）";
+      cb.textContent = "✕";
+      cb.title = "移除该记录（取消/已退出但仍残留时用；真在跑的会自动回来）";
       cb.addEventListener("click", (e) => {
         e.stopPropagation();
-        postStatus(r.id, "done");
+        postStatus(r.id, "end");
       });
       div.append(cb);
     }

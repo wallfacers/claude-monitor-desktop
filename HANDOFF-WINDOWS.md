@@ -102,8 +102,8 @@ WSL 的 claude 已上报。Windows 的 claude 要单独配 hooks，用 `hooks/re
 
 - `SessionStart`→登记(就绪 done) / `UserPromptSubmit`→running / `PostToolUse`→心跳 / `Notification`→waiting / `Stop`→done(保留) / `SessionEnd`→移除
 - `SessionEnd` 覆盖 `/exit`、Ctrl+C、Ctrl+D、超时、`/clear`
-- 兜底 `MONITOR_STALE_SEC`（默认 6h）专杀 `kill -9`/关终端/崩溃残留，不影响分钟级「卡住」判定
-- 已知局限：点终端 X / `kill -9` 不触发 SessionEnd，残留到 6h 兜底；日常用 Ctrl+C 或 `/exit` 即时移除
+- 兜底 `MONITOR_STALE_SEC`（默认 2h）专杀 `kill -9`/关终端/崩溃残留，不影响分钟级「卡住」判定
+- 已知局限：点终端 X / `kill -9` 不触发 SessionEnd，残留到 2h 兜底；日常用 Ctrl+C 或 `/exit` 即时移除，或点行内 `✕` 立即移除
 
 ## 待核实
 

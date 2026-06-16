@@ -7,9 +7,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class StatusStore:
     """In-memory table of Claude Code window statuses, keyed by session_id."""
 
-    def __init__(self, stale_sec=21600, auto_done_sec=1800):
-        # stale_sec 是兜底超时：超过它仍无任何 hook 事件，视为已死/关闭
-        # （kill-9/关终端 不会触发 SessionEnd）。默认 6h，远大于「卡住」分钟级阈值。
+    def __init__(self, stale_sec=7200, auto_done_sec=1800):
+        # stale_sec 是兜底超时：超过它仍无任何 hook 事件 -> 移除记录。
+        # 正常退出(/exit、Ctrl+C/D)走 SessionEnd 即时移除；硬关闭终端/kill-9 不发
+        # SessionEnd，靠这个兜底清理「幽灵」。默认 2h：够长不误删空闲会话，又不会留一天。
         self.stale_sec = stale_sec
         # auto_done_sec：running 超过它仍无任何回调 -> 视为完成（取消/打断/已死）。
         # Claude Code 打断(ESC)不发任何 hook，无法区分「取消」与「卡住」，故用超长兜底；
@@ -172,7 +173,7 @@ def create_server(host, port, store=None, clock=time.time):
 def main():
     host = os.environ.get("MONITOR_HOST", "127.0.0.1")
     port = int(os.environ.get("MONITOR_PORT", "8787"))
-    stale = int(os.environ.get("MONITOR_STALE_SEC", "21600"))
+    stale = int(os.environ.get("MONITOR_STALE_SEC", "7200"))
     auto_done = int(os.environ.get("MONITOR_AUTODONE_SEC", "1800"))
     server = create_server(host, port, store=StatusStore(stale_sec=stale, auto_done_sec=auto_done))
     print("claude-monitor server on http://{}:{}  (GET /state, POST /api/window-status)".format(host, port))
