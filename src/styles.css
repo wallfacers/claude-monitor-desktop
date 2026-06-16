@@ -1,9 +1,14 @@
 :root{ --running:#3ddc84; --waiting:#ffc83d; --done:#4aa8ff; --txt:#e6e9ef; --dim:#9aa3b2; }
 *{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
 html,body{background:transparent}
+/* 不要用 backdrop-filter：透明窗口里它没有桌面可模糊，WebView2 会回退成不透明灰块。
+   用纯半透明 rgba 背景，桌面/后面的窗口能真正透出来。 */
 #app{padding:10px;display:inline-block}
+/* 缩放(收起) ↔ 详细(展开) 切换动效：scale + fade */
+#minibar,#panel{transition:opacity .16s ease, transform .16s ease;transform-origin:top left}
+.mode-enter{opacity:0;transform:scale(.9)}
 .minibar{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:999px;
-  background:rgba(20,23,30,.82);border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.5)}
+  background:rgba(20,23,30,.72);border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.5)}
 .grip{cursor:move;color:var(--dim);font-size:13px;line-height:1;padding:0 2px;user-select:none}
 .grip:hover{color:var(--txt)}
 .segs{display:flex;align-items:center;gap:2px;cursor:pointer}
@@ -20,8 +25,8 @@ html,body{background:transparent}
 .seg.done .sd{background:var(--done)}
 .seg.zero{opacity:.32}
 @keyframes blink{50%{opacity:.25}}
-.panel{width:280px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(20,23,30,.55);
-  backdrop-filter:blur(14px) saturate(140%);box-shadow:0 12px 32px rgba(0,0,0,.45);overflow:hidden}
+.panel{width:280px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(18,21,28,.58);
+  box-shadow:0 12px 32px rgba(0,0,0,.45);overflow:hidden}
 .phead{display:flex;flex-direction:column;gap:8px;padding:11px 13px;background:rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.08)}
 .phead-top{display:flex;align-items:center;justify-content:space-between}
 .phead .t{font-size:13px;font-weight:600;color:var(--txt)}

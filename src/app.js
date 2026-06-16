@@ -22,18 +22,26 @@ function fitWindow() {
   if (!TW || !TW.getCurrentWindow || !TW.LogicalSize) return;
   const el = panelOpen ? panel : minibar;
   if (!el || el.hidden) return;
-  const r = el.getBoundingClientRect();
-  // 窗口刚好包住可见内容：从原点到内容右/下边 + 余量（给阴影留白，透明窗口下不可见）。
-  const w = Math.ceil(r.right) + 14;
-  const h = Math.ceil(r.bottom) + 14;
+  // 用 offset（布局尺寸，不受 transform 缩放影响）——动效进行中也测得准。
+  const w = el.offsetLeft + el.offsetWidth + 14;
+  const h = el.offsetTop + el.offsetHeight + 14;
   TW.getCurrentWindow().setSize(new TW.LogicalSize(w, h)).catch(() => {});
 }
 
+// 缩放(收起) ↔ 详细(展开) 切换：只显示一个，出现时播放 scale+fade 进入动效。
 function setExpanded(open) {
+  if (open === panelOpen) return;
   panelOpen = open;
-  panel.hidden = !open;
-  minibar.hidden = open;
-  requestAnimationFrame(fitWindow);
+  const show = open ? panel : minibar;
+  const hide = open ? minibar : panel;
+
+  hide.hidden = true;
+  show.hidden = false;
+  show.classList.add("mode-enter"); // 起始 opacity0 + scale(.9)
+  requestAnimationFrame(() => {
+    fitWindow(); // 先按目标尺寸贴合窗口
+    requestAnimationFrame(() => show.classList.remove("mode-enter")); // 再过渡到 1
+  });
 }
 
 function setCounts(counts) {
