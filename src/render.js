@@ -32,3 +32,11 @@ export function buildViewModel(state, stuckThresholdSec) {
     rows,
   };
 }
+
+export function newlyWaiting(prevWaitingIds, state) {
+  const wins = (state && Array.isArray(state.windows)) ? state.windows : [];
+  const waitingIds = wins.filter((w) => w.status === "waiting").map((w) => w.id);
+  const prev = new Set(prevWaitingIds);
+  const freshWaiting = waitingIds.filter((id) => !prev.has(id));
+  return { freshWaiting, waitingIds };
+}

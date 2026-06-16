@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatDuration, buildViewModel } from "./render.js";
+import { formatDuration, buildViewModel, newlyWaiting } from "./render.js";
 
 test("formatDuration: 秒 -> m:ss", () => {
   assert.equal(formatDuration(0), "0:00");
@@ -58,4 +58,30 @@ test("buildViewModel: 空/缺字段安全", () => {
   assert.deepEqual(vm.counts, { running: 0, waiting: 0, done: 0 });
   assert.equal(vm.aggregate, "idle");
   assert.deepEqual(vm.rows, []);
+});
+
+test("newlyWaiting: 首次出现的 waiting 触发", () => {
+  const state = { windows: [{ id: "c", status: "waiting" }] };
+  const r = newlyWaiting([], state);
+  assert.deepEqual(r.freshWaiting, ["c"]);
+  assert.deepEqual(r.waitingIds, ["c"]);
+});
+
+test("newlyWaiting: 持续 waiting 不重复触发", () => {
+  const state = { windows: [{ id: "c", status: "waiting" }] };
+  const r = newlyWaiting(["c"], state);
+  assert.deepEqual(r.freshWaiting, []);
+  assert.deepEqual(r.waitingIds, ["c"]);
+});
+
+test("newlyWaiting: 多窗口只挑新增", () => {
+  const state = {
+    windows: [
+      { id: "c", status: "waiting" },
+      { id: "e", status: "waiting" },
+      { id: "a", status: "running" },
+    ],
+  };
+  const r = newlyWaiting(["c"], state);
+  assert.deepEqual(r.freshWaiting, ["e"]);
 });
