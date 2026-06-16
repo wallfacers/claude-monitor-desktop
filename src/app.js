@@ -77,6 +77,19 @@ function fitWindow() {
   if (!TW || !TW.getCurrentWindow || !TW.LogicalSize) return;
   const el = panelOpen ? panel : minibar;
   if (!el || el.hidden) return;
+
+  // 展开态：按最长项目名动态加宽面板，避免被省略号截断；上下限保护防超长名字撑爆。
+  // 先回基础宽再测（可增可减）：scrollWidth 是全文本宽，clientWidth 是可见宽，差即被截像素。
+  if (panelOpen) {
+    const MIN_W = 280, MAX_W = 360;
+    panel.style.width = MIN_W + "px";
+    let extra = 0;
+    panel.querySelectorAll(".rname").forEach((n) => {
+      extra = Math.max(extra, n.scrollWidth - n.clientWidth);
+    });
+    panel.style.width = Math.max(MIN_W, Math.min(MIN_W + extra, MAX_W)) + "px";
+  }
+
   // 用 offset（布局尺寸，不受 transform 缩放影响）——动效进行中也测得准。
   // +16 与 #app padding 一致：四周留白对称，且容得下投影/闪烁环不被窗口直角边裁切。
   const w = el.offsetLeft + el.offsetWidth + 16;
@@ -142,6 +155,7 @@ function renderRows(rows) {
     const name = document.createElement("div");
     name.className = "rname";
     name.textContent = r.name ?? ""; // textContent — 无 XSS
+    name.title = r.name ?? ""; // 超长被省略号截断时，悬停可看全名
 
     const stat = document.createElement("div");
     stat.className = "rstat " + String(r.status).replace(/[^a-z]/g, "");

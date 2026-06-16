@@ -43,6 +43,19 @@ class HttpServerTest(unittest.TestCase):
         with urllib.request.urlopen(self.base + "/state", timeout=2) as resp:
             self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
 
+    def test_options_preflight_returns_cors_headers(self):
+        # 跨源 POST(Content-Type: application/json) 会先发 OPTIONS 预检；server 必须放行，
+        # 否则 Tauri webview 里的 postStatus（行内 ✕ 移除记录）被浏览器拦截 → 点击无效果。
+        req = urllib.request.Request(self.base + "/api/window-status", method="OPTIONS",
+                                     headers={"Origin": "https://tauri.localhost",
+                                              "Access-Control-Request-Method": "POST",
+                                              "Access-Control-Request-Headers": "content-type"})
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            self.assertEqual(resp.status, 204)
+            self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
+            self.assertIn("POST", resp.headers.get("Access-Control-Allow-Methods", ""))
+            self.assertIn("Content-Type", resp.headers.get("Access-Control-Allow-Headers", ""))
+
     def test_post_status_then_get_state(self):
         status, _ = _post(
             self.base + "/api/window-status",

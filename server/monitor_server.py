@@ -162,6 +162,16 @@ def make_handler(store, clock):
             )
             self._send_json(200, {"ok": True})
 
+        def do_OPTIONS(self):
+            # CORS 预检：跨源 POST(application/json) 会先发 OPTIONS；放行后浏览器才真正发 POST，
+            # 否则 Tauri webview 里的 postStatus（行内 ✕ 移除记录）被拦截 → 点击无效果。
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Max-Age", "86400")
+            self.end_headers()
+
     return Handler
 
 
