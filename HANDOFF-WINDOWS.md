@@ -50,7 +50,7 @@ Claude Code(WSL/Windows)  ──hook POST 8787──▶  monitor_server.py(Windo
 
 ```powershell
 cd D:\project\java\source\claude-monitor-desktop
-git fetch origin; git reset --hard origin/feat/desktop-monitor   # 同步最新
+git fetch origin; git reset --hard origin/main   # 同步最新（主线已合并到 main）
 npm install          # 装 @tauri-apps/cli
 
 # 开发运行（会原生拉起 server + 弹出悬浮窗）

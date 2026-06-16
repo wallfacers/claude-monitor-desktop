@@ -50,9 +50,17 @@ fn ensure_server(app: &tauri::App) {
     let _ = cmd.spawn(); // 失败不致命：前端会显示「离线」，用户也可手动起 server
 }
 
-/// Windows 常见为 `python`；若用户用 Python Launcher 可改为 `py`。
+/// Windows/通用用 `python`（若用 Python Launcher 可改 `py`）；
+/// macOS 默认无 `python` 命令，只有 `python3`。
 fn python_bin() -> &'static str {
-    "python"
+    #[cfg(target_os = "macos")]
+    {
+        "python3"
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        "python"
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
