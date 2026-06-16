@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>claude-monitor-desktop · 悬浮窗草图</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --panel2:#22262f; --line:#2c313c;
+    --txt:#e6e9ef; --dim:#9aa3b2;
+    --running:#3ddc84; --waiting:#ffc83d; --done:#4aa8ff; --idle:#6b7280;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  body{background:#0a0c10;color:var(--txt);padding:32px;line-height:1.5}
+  h1{font-size:20px;margin-bottom:4px}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:28px}
+  .grid{display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start}
+  .col{display:flex;flex-direction:column;gap:12px}
+  .label{color:var(--dim);font-size:12px;letter-spacing:.5px;text-transform:uppercase}
+  .desktop{
+    width:300px;height:200px;border:1px solid var(--line);border-radius:12px;
+    background:
+      radial-gradient(circle at 30% 20%, #1b2330, #0d1016 70%);
+    position:relative;overflow:hidden;
+  }
+  .fake-content{position:absolute;inset:0;padding:14px;color:#39414f;font-size:11px}
+  .fake-content div{height:7px;background:#161b24;border-radius:4px;margin-bottom:8px}
+  .fake-content div:nth-child(2){width:80%}
+  .fake-content div:nth-child(3){width:60%}
+  .fake-content div:nth-child(4){width:90%}
+
+  /* ===== 收起态：360 式悬浮小球 ===== */
+  .ball{
+    position:absolute;right:14px;bottom:14px;width:52px;height:52px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    background:radial-gradient(circle at 35% 30%, #2a2f3a, #14171d);
+    border:2px solid var(--running);box-shadow:0 6px 18px rgba(0,0,0,.5);
+    font-weight:700;font-size:18px;
+  }
+  .ball .badge{
+    position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;
+    background:var(--waiting);color:#1a1d24;font-size:12px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;padding:0 5px;
+    border:2px solid #14171d;
+  }
+  .ball .badge.waiting{animation:blink .8s infinite}
+  .ball.waiting{border-color:var(--waiting);animation:flash 1s infinite}
+  @keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(255,200,61,.7)}50%{box-shadow:0 0 0 8px rgba(255,200,61,0)}}
+
+  /* ===== 收起态：紧凑三状态计数条 ===== */
+  .minibar{
+    position:absolute;right:14px;bottom:14px;display:flex;align-items:center;gap:2px;
+    padding:5px 6px;border-radius:999px;cursor:pointer;
+    background:rgba(20,23,30,.78);backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.5);
+  }
+  .seg{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+  .seg .sd{width:9px;height:9px;border-radius:50%}
+  .seg.running{color:var(--running)} .seg.running .sd{background:var(--running);box-shadow:0 0 6px var(--running)}
+  .seg.waiting{color:var(--waiting);background:rgba(255,200,61,.16)} .seg.waiting .sd{background:var(--waiting);box-shadow:0 0 6px var(--waiting);animation:blink .8s infinite}
+  .seg.done{color:var(--done)} .seg.done .sd{background:var(--done)}
+  .seg.zero{opacity:.32;font-weight:600}
+
+  /* ===== 展开态：半透明面板（毛玻璃，内容透出） ===== */
+  .panel{
+    width:280px;border:1px solid rgba(255,255,255,.12);border-radius:12px;
+    background:rgba(20,23,30,.55);
+    backdrop-filter:blur(14px) saturate(140%);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+    box-shadow:0 12px 32px rgba(0,0,0,.45);overflow:hidden;
+  }
+  .phead{display:flex;flex-direction:column;gap:8px;padding:11px 13px;background:rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.08)}
+  .phead-top{display:flex;align-items:center;justify-content:space-between}
+  .phead .t{font-size:13px;font-weight:600}
+  .phead .more{color:var(--dim);font-size:14px;cursor:pointer;line-height:1}
+  .agg{display:flex;gap:6px;flex-wrap:wrap}
+  .cnt{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--dim);
+       padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
+  .cnt b{font-weight:800}
+  .cnt.waiting b{color:var(--waiting)} .cnt.running b{color:var(--running)} .cnt.done b{color:var(--done)}
+  .rows{padding:6px}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px}
+  .row:hover{background:var(--panel2)}
+  .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .dot.running{background:var(--running);box-shadow:0 0 8px var(--running)}
+  .dot.waiting{background:var(--waiting);box-shadow:0 0 8px var(--waiting);animation:blink .8s infinite}
+  .dot.done{background:var(--done)}
+  @keyframes blink{50%{opacity:.25}}
+  .rname{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rstat{font-size:11px;font-weight:600}
+  .rstat.running{color:var(--running)} .rstat.waiting{color:var(--waiting)} .rstat.done{color:var(--done)}
+  .timer{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:46px;text-align:right}
+  .timer.warn{color:var(--waiting);font-weight:700}
+  .row.alert{background:rgba(255,200,61,.12);border:1px solid rgba(255,200,61,.4)}
+
+  .note{margin-top:36px;max-width:760px;color:var(--dim);font-size:13px}
+  .note b{color:var(--txt)}
+  .toggle{margin-top:20px}
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--running)}
+  .legend{display:flex;gap:18px;margin-top:8px;font-size:12px;color:var(--dim)}
+  .legend span{display:flex;align-items:center;gap:6px}
+</style>
+</head>
+<body>
+  <h1>claude-monitor-desktop · 悬浮窗草图</h1>
+  <div class="sub">数据来自现成的 <code>GET /state</code>（running / waiting / done + age 计时）。下面是几种形态，点按钮可切换状态演示。</div>
+
+  <div class="grid">
+
+    <!-- 收起态 -->
+    <div class="col">
+      <div class="label">① 收起态 · 紧凑三状态计数条</div>
+      <div class="desktop">
+        <div class="fake-content">你正在摸鱼的网页…<div></div><div></div><div></div></div>
+        <div class="minibar">
+          <div class="seg running"><div class="sd"></div>2</div>
+          <div class="seg waiting"><div class="sd"></div>1</div>
+          <div class="seg done"><div class="sd"></div>3</div>
+        </div>
+      </div>
+      <div class="legend"><span>同时显示 运行/待确认/完成 三类计数；待确认闪烁，为 0 的项变灰</span></div>
+      <div class="desktop">
+        <div class="fake-content">无待确认时…<div></div><div></div><div></div></div>
+        <div class="minibar">
+          <div class="seg running"><div class="sd"></div>1</div>
+          <div class="seg waiting zero"><div class="sd"></div>0</div>
+          <div class="seg done"><div class="sd"></div>4</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 展开态 -->
+    <div class="col">
+      <div class="label">② 展开态 · 半透明毛玻璃，内容透出不挡视线</div>
+      <div style="position:relative;width:280px">
+        <!-- 模拟后面的网页内容，用来展示透明效果 -->
+        <div style="position:absolute;inset:0;padding:18px;color:#7c8aa3;font-size:13px;line-height:2;background:linear-gradient(135deg,#243049,#10202e);border-radius:12px">
+          摸鱼的网页正文 ABCDEFG 1234567890<br>这段文字会从半透明面板后面透出来<br>所以面板不会完全挡住你看内容<br>知乎 / B站 / 文档 都能瞄到
+        </div>
+        <div class="panel" style="position:relative">
+        <div class="phead">
+          <div class="phead-top">
+            <div class="t">Claude Code 监控</div>
+            <div class="more">⋯</div>
+          </div>
+          <div class="agg">
+            <span class="cnt waiting"><div class="dot waiting"></div><b>1</b>待确认</span>
+            <span class="cnt running"><div class="dot running"></div><b>1</b>运行</span>
+            <span class="cnt done"><div class="dot done"></div><b>1</b>完成</span>
+          </div>
+        </div>
+        <div class="rows" id="rows">
+          <div class="row alert">
+            <div class="dot waiting"></div>
+            <div class="rname">eimosp-integration-data-web</div>
+            <div class="rstat waiting">待确认</div>
+            <div class="timer">0:42</div>
+          </div>
+          <div class="row">
+            <div class="dot running"></div>
+            <div class="rname">universal-etl-ai-agent</div>
+            <div class="rstat running">运行中</div>
+            <div class="timer warn">14:23</div>
+          </div>
+          <div class="row">
+            <div class="dot done"></div>
+            <div class="rname">data-weave</div>
+            <div class="rstat done">完成</div>
+            <div class="timer">—</div>
+          </div>
+        </div>
+        </div><!-- /panel -->
+      </div><!-- /relative wrapper -->
+      <div class="legend"><span>⚠ 黄色高亮行 = 需要你回去操作；运行计时变黄 = 跑太久疑似卡住</span></div>
+    </div>
+
+    <!-- 强提示 -->
+    <div class="col">
+      <div class="label">③ WAITING 强提示（整条描边闪烁）</div>
+      <div class="desktop">
+        <div class="fake-content">摸鱼中被叫回…<div></div><div></div><div></div></div>
+        <div class="minibar" style="border-color:var(--waiting);animation:flash 1s infinite">
+          <div class="seg running"><div class="sd"></div>1</div>
+          <div class="seg waiting"><div class="sd"></div>2</div>
+          <div class="seg done"><div class="sd"></div>2</div>
+        </div>
+      </div>
+      <div class="legend"><span>有待确认时整条黄色描边闪烁，配可选声音/Windows 通知</span></div>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <b>核心想法：</b>平时只露一个小球（聚合色：有待确认→黄闪、否则有运行→绿、否则蓝/灰）；
+    需要时悬停展开看每个窗口。<b>计时</b>直接用 <code>/state</code> 里 RUNNING 的 age（从你提交任务起算），
+    超过阈值（如 10 分钟）数字变黄提示「可能卡住」。<b>WAITING</b> 行高亮 + 小球闪烁，必要时可加声音/Windows 通知。
+  </div>
+
+</body>
+</html>
