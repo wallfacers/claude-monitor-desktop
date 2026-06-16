@@ -134,21 +134,55 @@ class StatusStoreTest(unittest.TestCase):
         win = store.get_state(now=1200.0)["windows"][0]
         self.assertEqual(win["run_sec"], 0)
 
-    def test_running_window_survives_past_stale(self):
+    def test_window_survives_within_stale_regardless_of_status(self):
+        # idle 在 stale_sec 内 -> 任何状态都保留（含 running/waiting/done）
         store = StatusStore(stale_sec=600)
         store.update("s1", "running", "/tmp/a", now=1000.0)
+        store.update("s2", "waiting", "/tmp/b", now=1000.0)
 
-        state = store.get_state(now=3000.0)
-        self.assertEqual(len(state["windows"]), 1)
-        self.assertEqual(state["windows"][0]["status"], "running")
+        state = store.get_state(now=1500.0)  # idle 500 < 600
+        self.assertEqual(len(state["windows"]), 2)
 
-    def test_waiting_window_survives_past_stale(self):
+    def test_any_window_dropped_after_stale_fallback(self):
+        # 超长无任何事件 -> 兜底清理（kill-9/关终端 残留），不论状态
         store = StatusStore(stale_sec=600)
-        store.update("s1", "waiting", "/tmp/a", now=1000.0)
+        store.update("s1", "running", "/tmp/a", now=1000.0)
+        store.update("s2", "waiting", "/tmp/b", now=1000.0)
 
-        state = store.get_state(now=3000.0)
+        state = store.get_state(now=2000.0)  # idle 1000 > 600
+        self.assertEqual(state["windows"], [])
+
+    def test_session_start_registers_ready_window(self):
+        store = StatusStore(stale_sec=600)
+        store.update("s1", "start", "/tmp/proj", now=1000.0)
+
+        state = store.get_state(now=1000.0)
         self.assertEqual(len(state["windows"]), 1)
-        self.assertEqual(state["windows"][0]["status"], "waiting")
+        self.assertEqual(state["windows"][0]["status"], "done")
+        self.assertEqual(state["windows"][0]["name"], "proj")
+
+    def test_session_end_removes_window(self):
+        store = StatusStore(stale_sec=600)
+        store.update("s1", "running", "/tmp/proj", now=1000.0)
+        store.update("s1", "end", "/tmp/proj", now=1100.0)
+
+        self.assertEqual(store.get_state(now=1100.0)["windows"], [])
+
+    def test_session_end_unknown_session_is_noop(self):
+        store = StatusStore(stale_sec=600)
+        store.update("ghost", "end", "/tmp/proj", now=1000.0)  # 不存在也不报错
+
+        self.assertEqual(store.get_state(now=1000.0)["windows"], [])
+
+    def test_session_start_does_not_clobber_running(self):
+        # SessionStart 可能因 resume/compact 在运行中再次触发，不能把状态降级
+        store = StatusStore(stale_sec=600)
+        store.update("s1", "running", "/tmp/proj", now=1000.0)
+        store.update("s1", "start", "/tmp/proj", now=1050.0)
+
+        win = store.get_state(now=1050.0)["windows"][0]
+        self.assertEqual(win["status"], "running")
+        self.assertEqual(win["run_sec"], 50)  # run_started 未被重置
 
 
 if __name__ == "__main__":

@@ -202,7 +202,41 @@ WSL 侧（被监控的 Claude Code）            Windows 侧（本项目）
 
 ---
 
+## 🔢 计数准确性（会话生命周期，2026-06-16 修复）
+
+旧实现把 `Stop` 当「完成」并按时间清理，导致：空闲但活着的会话 10 分钟后消失（少算）、非正常退出的会话卡在 running（多算）。已按 Claude Code 真实生命周期重做：
+
+- `SessionStart` → 登记窗口（就绪态 done），**一开 claude 就计数**
+- `UserPromptSubmit`→running / `PostToolUse`→心跳 / `Notification`→waiting / `Stop`→done（**保留，不再按时间删**）
+- `SessionEnd` → **移除窗口**（覆盖 `/exit`、Ctrl+C、Ctrl+D、超时、`/clear`）
+- 兜底：`MONITOR_STALE_SEC`（默认 21600=6h）超长无任何事件才清理，专杀 `kill -9`/关终端/崩溃的残留；不影响分钟级「卡住」判定。
+
+> 已知局限：直接点终端 X 关闭 / `kill -9` 不触发 SessionEnd，那个窗口会残留到 6h 兜底超时。日常用 Ctrl+C 或 `/exit` 退出即可即时移除。
+
+## 🪟 让 Windows 侧的 Claude Code 也计数
+
+WSL 的 claude 已通过 WSL `~/.claude/settings.json` 的 hooks 上报。**Windows 上跑的 claude 要单独配** —— 用本项目自带的 `hooks/report-status.ps1`（PowerShell 版，POST 到同一个 `127.0.0.1:8787`）。
+
+在 **Windows 的 `%USERPROFILE%\.claude\settings.json`** 的 `hooks` 块里**合并**（保留已有项），六个事件都指向 ps1：
+
+```json
+{
+  "hooks": {
+    "SessionStart":     [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "UserPromptSubmit": [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "PostToolUse":      [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "Notification":     [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "Stop":             [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
+    "SessionEnd":       [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\project\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ]
+  }
+}
+```
+
+配好后：WSL 的 N 个 + Windows 的 M 个 claude 都会出现在悬浮窗里，计数 = N+M（如 5+2=7）。
+
 ## ⚠️ 还需在 WSL 侧做的一步：配置 hooks（否则后端收不到事件）
+
+> ✅ 这步 WSL 侧已由我配好（`~/.claude/settings.json` 的 hooks 含 SessionStart/UserPromptSubmit/PostToolUse/Notification/Stop/SessionEnd，已生效，重启 claude 窗口后加载）。下面保留作参考。
 
 桌面应用只是展示层。要让 Claude Code 把状态报上来，必须在 **WSL 的 `~/.claude/settings.json`** 的
 `hooks` 块里**合并**（不要覆盖已有的 `ConfigChange` 等）下面四个 hook，命令用绝对路径：

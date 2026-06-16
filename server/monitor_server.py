@@ -7,18 +7,28 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class StatusStore:
     """In-memory table of Claude Code window statuses, keyed by session_id."""
 
-    def __init__(self, stale_sec=600):
+    def __init__(self, stale_sec=21600):
+        # stale_sec 是兜底超时：超过它仍无任何 hook 事件，视为已死/关闭
+        # （kill-9/关终端 不会触发 SessionEnd）。默认 6h，远大于「卡住」分钟级阈值。
         self.stale_sec = stale_sec
         self._windows = {}
 
     def update(self, session_id, status, cwd, now):
-        win = self._windows.get(session_id)
         name = os.path.basename(cwd.rstrip("/")) if cwd else session_id
+        win = self._windows.get(session_id)
 
-        if status == "heartbeat":
+        # SessionEnd：会话真正结束（/exit、Ctrl+C、Ctrl+D、超时…）-> 移除窗口
+        if status == "end":
+            self._windows.pop(session_id, None)
+            return
+
+        # SessionStart / heartbeat：仅确保窗口存在并刷新活跃度，不降级已有状态
+        if status in ("start", "heartbeat"):
             if win is None:
+                # start -> 就绪(done)；heartbeat 收到未知会话 -> 视为运行中
+                initial = "running" if status == "heartbeat" else "done"
                 self._windows[session_id] = {
-                    "id": session_id, "status": "running",
+                    "id": session_id, "status": initial,
                     "name": name, "run_started": now, "last_seen": now,
                 }
             else:
@@ -28,7 +38,7 @@ class StatusStore:
             return
 
         if status == "running":
-            run_started = now
+            run_started = now            # 新一轮 prompt = 新的计时起点
         else:
             run_started = win["run_started"] if win else now
 
@@ -40,8 +50,9 @@ class StatusStore:
     def get_state(self, now):
         visible = []
         for win in self._windows.values():
-            age = now - win["last_seen"]
-            if win["status"] == "done" and age > self.stale_sec:
+            # 唯一的时间清理：超长无任何事件的兜底（专杀 kill-9/关终端 残留）。
+            # 正常关闭走 SessionEnd 即时移除；活跃/卡住/空闲会话都在 stale_sec 内保留。
+            if now - win["last_seen"] > self.stale_sec:
                 continue
             visible.append(win)
 
@@ -135,7 +146,7 @@ def create_server(host, port, store=None, clock=time.time):
 def main():
     host = os.environ.get("MONITOR_HOST", "127.0.0.1")
     port = int(os.environ.get("MONITOR_PORT", "8787"))
-    stale = int(os.environ.get("MONITOR_STALE_SEC", "600"))
+    stale = int(os.environ.get("MONITOR_STALE_SEC", "21600"))
     server = create_server(host, port, store=StatusStore(stale_sec=stale))
     print("claude-monitor server on http://{}:{}  (GET /state, POST /api/window-status)".format(host, port))
     try:
