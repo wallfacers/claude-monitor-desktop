@@ -10,9 +10,20 @@ try {
         "SessionStart"     { $status = "start" }
         "UserPromptSubmit" { $status = "running" }
         "PostToolUse"      { $status = "heartbeat" }
-        "Notification"     { $status = "waiting" }
         "Stop"             { $status = "done" }
         "SessionEnd"       { $status = "end" }
+        "Notification" {
+            # Notification 同时用于「需批准工具调用」和「空闲 60s 等待输入」。
+            # 用 notification_type 区分：idle_prompt=已完成在等输入（非待确认），
+            # permission_prompt=真·需确认。旧版本无此字段时用 message 文本兜底。
+            $ntype = "$($data.notification_type)"
+            $msg   = "$($data.message)"
+            if     ($ntype -eq "permission_prompt") { $status = "waiting" }
+            elseif ($ntype -eq "idle_prompt")       { $status = "done" }
+            elseif ($ntype -eq "auth_success" -or $ntype -like "elicitation_*") { exit 0 }
+            elseif ($msg -match "waiting for your input|is idle") { $status = "done" }
+            else   { $status = "waiting" }
+        }
         default            { exit 0 }
     }
 
