@@ -1,21 +1,28 @@
 :root{ --running:#3ddc84; --waiting:#ffc83d; --done:#4aa8ff; --txt:#e6e9ef; --dim:#9aa3b2; }
 *{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
-html,body{background:transparent}
+/* 收起/展开必须只显示一个：[hidden] 要压过 .minibar 的 display 设置 */
+[hidden]{display:none!important}
+/* 窗口无滚动条（消除详情态首帧白色滚动条闪烁） */
+html,body{background:transparent;overflow:hidden}
+::-webkit-scrollbar{width:0;height:0;background:transparent}
 /* 不要用 backdrop-filter：透明窗口里它没有桌面可模糊，WebView2 会回退成不透明灰块。
    用纯半透明 rgba 背景，桌面/后面的窗口能真正透出来。 */
 #app{padding:10px;display:inline-block}
 /* 缩放(收起) ↔ 详细(展开) 切换动效：scale + fade */
 #minibar,#panel{transition:opacity .16s ease, transform .16s ease;transform-origin:top left}
 .mode-enter{opacity:0;transform:scale(.9)}
-.minibar{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:999px;
+/* 整个药丸都是拖动区(data-tauri-drag-region)，所以 cursor:move */
+.minibar{display:inline-flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;border-radius:999px;cursor:move;
   background:rgba(20,23,30,.72);border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.5)}
-.grip{cursor:move;color:var(--dim);font-size:13px;line-height:1;padding:0 2px;user-select:none}
-.grip:hover{color:var(--txt)}
-.segs{display:flex;align-items:center;gap:2px;cursor:pointer}
+.segs{display:flex;align-items:center;gap:2px}
 .hbtns{display:flex;align-items:center;gap:8px}
-.closebtn{cursor:pointer;color:var(--dim);font-size:12px;line-height:1;padding:0 2px;user-select:none}
-.closebtn:hover{color:var(--txt)}
-.phead .t{cursor:move}
+/* 通用小图标按钮（展开 ⌄ / 收起 ✕）：不是拖动区，可点击 */
+.iconbtn{cursor:pointer;color:var(--dim);font-size:13px;line-height:1;padding:2px 5px;border-radius:6px;user-select:none}
+.iconbtn:hover{color:var(--txt);background:rgba(255,255,255,.1)}
+.phead-top{cursor:move}
+/* 整条药丸/标题栏都可拖：内部装饰元素不吃鼠标，事件落到拖动区；仅图标按钮可点 */
+.minibar > *, .phead-top > *{pointer-events:none}
+.minibar .iconbtn, .phead-top .iconbtn{pointer-events:auto}
 .minibar.alert{border-color:var(--waiting);animation:flash 1s infinite}
 @keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(255,200,61,.7)}50%{box-shadow:0 0 0 8px rgba(255,200,61,0)}}
 .seg{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:13px;font-weight:700;color:var(--txt)}

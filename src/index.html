@@ -6,24 +6,24 @@
 </head>
 <body>
   <div id="app" class="collapsed">
-    <!-- 收起态：拖动手柄 + 三状态计数条（点计数区展开） -->
-    <div id="minibar" class="minibar">
-      <div class="grip" data-tauri-drag-region title="按住拖动">⠿</div>
-      <div id="segs" class="segs" title="点击展开">
+    <!-- 收起(缩放)态：整条药丸可拖动；点 ⌄ 展开详情 -->
+    <div id="minibar" class="minibar" data-tauri-drag-region title="按住拖动">
+      <div class="segs" data-tauri-drag-region>
         <div class="seg running"><div class="sd"></div><span data-count="running">0</span></div>
         <div class="seg waiting"><div class="sd"></div><span data-count="waiting">0</span></div>
         <div class="seg done"><div class="sd"></div><span data-count="done">0</span></div>
       </div>
+      <div id="expand" class="iconbtn" title="展开详情">⌄</div>
     </div>
 
-    <!-- 展开态：面板 -->
+    <!-- 展开(详细)态：面板。标题栏可拖动，✕ 收起 -->
     <div id="panel" class="panel" hidden>
       <div class="phead">
-        <div class="phead-top">
-          <div class="t" data-tauri-drag-region title="按住拖动">Claude Code 监控</div>
+        <div class="phead-top" data-tauri-drag-region title="按住拖动">
+          <div class="t">Claude Code 监控</div>
           <div class="hbtns">
             <div id="offline" class="off" hidden>离线</div>
-            <div id="collapse" class="closebtn" title="收起">✕</div>
+            <div id="collapse" class="iconbtn" title="收起">✕</div>
           </div>
         </div>
         <div class="agg">

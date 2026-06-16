@@ -23,6 +23,7 @@ export function buildViewModel(state, stuckThresholdSec) {
       status: w.status,
       timerText,
       stuck,
+      idleSec: idle, // 距最近一次 hook 回调的秒数（卡住判据，供 UI 提示）
       highlight: w.status === "waiting",
     };
   });

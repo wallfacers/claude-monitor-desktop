@@ -10,7 +10,6 @@ let panelOpen = false;
 const $ = (s) => document.querySelector(s);
 const panel = $("#panel");
 const minibar = $("#minibar");
-const segs = $("#segs");
 const rowsEl = $("#rows");
 const offlineEl = $("#offline");
 const ding = $("#ding");
@@ -77,14 +76,18 @@ function renderRows(rows) {
     const timer = document.createElement("div");
     timer.className = "timer" + (r.stuck ? " warn" : "");
     timer.textContent = r.timerText;
+    // 卡住时提示：距 Claude 最近一次 hook 回调多久（区分「跑得久」与「真卡住」）
+    timer.title = r.stuck
+      ? `已 ${Math.floor((r.idleSec || 0) / 60)} 分钟无 Claude 回调，疑似卡住`
+      : "";
 
     div.append(dot, name, stat, timer);
     rowsEl.appendChild(div);
   });
 }
 
-// 点击计数区展开；✕ 收起。拖动由 HTML 的 data-tauri-drag-region 处理。
-segs.addEventListener("click", () => setExpanded(true));
+// ⌄ 展开详情；✕ 收起。整条药丸/标题栏的拖动由 HTML data-tauri-drag-region 处理。
+$("#expand").addEventListener("click", () => setExpanded(true));
 $("#collapse").addEventListener("click", () => setExpanded(false));
 
 async function tick() {

@@ -47,6 +47,12 @@ test("buildViewModel: 卡住判定用 idle_sec 而非 run_sec", () => {
   assert.equal(vm.rows[1].stuck, true);
 });
 
+test("buildViewModel: 透传 idleSec（最近回调钩子距今秒数）", () => {
+  const vm = buildViewModel(sample, 600);
+  assert.equal(vm.rows[0].idleSec, 3);
+  assert.equal(vm.rows[1].idleSec, 650);
+});
+
 test("buildViewModel: waiting 行高亮", () => {
   const vm = buildViewModel(sample, 600);
   assert.equal(vm.rows[2].highlight, true);
