@@ -9,7 +9,7 @@ html,body{background:transparent}
 .seg{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:13px;font-weight:700;color:var(--txt)}
 .seg .sd{width:9px;height:9px;border-radius:50%}
 .seg.running .sd{background:var(--running);box-shadow:0 0 6px var(--running)}
-.seg.waiting{color:var(--waiting);background:rgba(255,200,61,.16)} .seg.waiting .sd{background:var(--waiting);animation:blink .8s infinite}
+.seg.waiting{color:var(--waiting);background:rgba(255,200,61,.16)} .seg.waiting .sd{background:var(--waiting)} .seg.waiting:not(.zero) .sd{animation:blink .8s infinite}
 .seg.done .sd{background:var(--done)}
 .seg.zero{opacity:.32}
 @keyframes blink{50%{opacity:.25}}
@@ -27,7 +27,7 @@ html,body{background:transparent}
 .row.alert{background:rgba(255,200,61,.12);border:1px solid rgba(255,200,61,.4)}
 .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
 .dot.running{background:var(--running);box-shadow:0 0 8px var(--running)}
-.dot.waiting{background:var(--waiting);animation:blink .8s infinite}
+.dot.waiting{background:var(--waiting)} .row .dot.waiting{animation:blink .8s infinite}
 .dot.done{background:var(--done)}
 .rname{flex:1;font-size:13px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rstat{font-size:11px;font-weight:600}.rstat.running{color:var(--running)}.rstat.waiting{color:var(--waiting)}.rstat.done{color:var(--done)}
