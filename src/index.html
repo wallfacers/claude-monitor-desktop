@@ -6,14 +6,26 @@
 </head>
 <body>
   <div id="app" class="collapsed">
+    <!-- 收起态：拖动手柄 + 三状态计数条（点计数区展开） -->
     <div id="minibar" class="minibar">
-      <div class="seg running"><div class="sd"></div><span data-count="running">0</span></div>
-      <div class="seg waiting"><div class="sd"></div><span data-count="waiting">0</span></div>
-      <div class="seg done"><div class="sd"></div><span data-count="done">0</span></div>
+      <div class="grip" data-tauri-drag-region title="按住拖动">⠿</div>
+      <div id="segs" class="segs" title="点击展开">
+        <div class="seg running"><div class="sd"></div><span data-count="running">0</span></div>
+        <div class="seg waiting"><div class="sd"></div><span data-count="waiting">0</span></div>
+        <div class="seg done"><div class="sd"></div><span data-count="done">0</span></div>
+      </div>
     </div>
+
+    <!-- 展开态：面板 -->
     <div id="panel" class="panel" hidden>
       <div class="phead">
-        <div class="phead-top"><div class="t">Claude Code 监控</div><div id="offline" class="off" hidden>离线</div></div>
+        <div class="phead-top">
+          <div class="t" data-tauri-drag-region title="按住拖动">Claude Code 监控</div>
+          <div class="hbtns">
+            <div id="offline" class="off" hidden>离线</div>
+            <div id="collapse" class="closebtn" title="收起">✕</div>
+          </div>
+        </div>
         <div class="agg">
           <span class="cnt waiting"><div class="dot waiting"></div><b data-count="waiting">0</b>待确认</span>
           <span class="cnt running"><div class="dot running"></div><b data-count="running">0</b>运行</span>

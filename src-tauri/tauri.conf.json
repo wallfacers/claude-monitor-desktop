@@ -12,10 +12,8 @@
       {
         "label": "main",
         "title": "Claude Monitor",
-        "width": 360,
-        "height": 420,
-        "minWidth": 220,
-        "minHeight": 120,
+        "width": 150,
+        "height": 56,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,

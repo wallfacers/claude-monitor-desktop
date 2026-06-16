@@ -1,9 +1,16 @@
 :root{ --running:#3ddc84; --waiting:#ffc83d; --done:#4aa8ff; --txt:#e6e9ef; --dim:#9aa3b2; }
 *{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
 html,body{background:transparent}
-#app{padding:6px}
-.minibar{display:inline-flex;align-items:center;gap:2px;padding:5px 6px;border-radius:999px;cursor:pointer;
-  background:rgba(20,23,30,.78);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.5)}
+#app{padding:10px;display:inline-block}
+.minibar{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:999px;
+  background:rgba(20,23,30,.82);border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.grip{cursor:move;color:var(--dim);font-size:13px;line-height:1;padding:0 2px;user-select:none}
+.grip:hover{color:var(--txt)}
+.segs{display:flex;align-items:center;gap:2px;cursor:pointer}
+.hbtns{display:flex;align-items:center;gap:8px}
+.closebtn{cursor:pointer;color:var(--dim);font-size:12px;line-height:1;padding:0 2px;user-select:none}
+.closebtn:hover{color:var(--txt)}
+.phead .t{cursor:move}
 .minibar.alert{border-color:var(--waiting);animation:flash 1s infinite}
 @keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(255,200,61,.7)}50%{box-shadow:0 0 0 8px rgba(255,200,61,0)}}
 .seg{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:13px;font-weight:700;color:var(--txt)}

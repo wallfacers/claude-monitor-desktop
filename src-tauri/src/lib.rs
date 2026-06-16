@@ -68,9 +68,8 @@ pub fn run() {
                 .get_webview_window("main")
                 .expect("main window must exist");
 
-            // 毛玻璃；不支持的平台/版本静默回退到 CSS 半透明背景。
-            #[cfg(target_os = "windows")]
-            let _ = window_vibrancy::apply_acrylic(&win, Some((18, 21, 28, 160)));
+            // 用纯透明窗口（不上 acrylic）：窗口按内容自适应尺寸，空白区域即桌面，
+            // 圆角干净；面板/药丸自身用 CSS 半透明背景。
 
             // 确保后端在跑。
             ensure_server(app);
