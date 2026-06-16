@@ -38,6 +38,11 @@ class HttpServerTest(unittest.TestCase):
         status, _ = _get(self.base + "/healthz")
         self.assertEqual(status, 200)
 
+    def test_state_has_cors_header(self):
+        # 浏览器/Tauri webview 跨源 fetch /state 需要此头
+        with urllib.request.urlopen(self.base + "/state", timeout=2) as resp:
+            self.assertEqual(resp.headers.get("Access-Control-Allow-Origin"), "*")
+
     def test_post_status_then_get_state(self):
         status, _ = _post(
             self.base + "/api/window-status",
