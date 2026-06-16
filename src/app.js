@@ -3,6 +3,7 @@ import { buildViewModel, newlyWaiting, newlyDone, statusLabel } from "./render.j
 const POLL_MS = 1000;
 const STUCK_SEC = 600; // 10 分钟，后续可从设置读
 const STATE_URL = "http://localhost:8787/state";
+const POST_URL = "http://localhost:8787/api/window-status";
 const DONE_FLASH_MS = 6000; // 单个任务完成贡献的闪烁时长
 const DONE_FLASH_MAX_MS = 30000; // 累加上限：多个完成时间累加但封顶，避免一直闪
 
@@ -13,7 +14,17 @@ let lastVm = null;
 let lastWaitingIds = [];
 let prevDone = []; // 上一轮的完成 id（用于检测「新完成」）
 let seededDone = false; // 首次轮询只播种、不为已存在的完成补闪
-let doneFlashUntil = 0; // 完成闪烁截止时间戳（ms），多个完成累加
+let doneFlashUntil = 0; // 收起条完成闪烁截止时间戳（ms），多个完成累加
+const doneFlashIds = new Map(); // 每个新完成会话的行闪动截止时间戳（展开详情用）
+
+// 手动操作：上报某会话状态（如把卡在运行中的取消会话标记完成）。失败静默。
+function postStatus(id, status) {
+  fetch(POST_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: id, status }),
+  }).catch(() => {});
+}
 
 const $ = (s) => document.querySelector(s);
 const panel = $("#panel");
@@ -120,6 +131,9 @@ function renderRows(rows) {
   rows.forEach((r) => {
     const div = document.createElement("div");
     div.className = "row" + (r.highlight ? " alert" : "");
+    // 完成提示：新完成的行在展开详情里也蓝闪（时间到自动停）
+    const flashUntil = doneFlashIds.get(r.id);
+    if (flashUntil && Date.now() < flashUntil) div.classList.add("done-flash");
 
     const dot = document.createElement("div");
     // r.status 是固定串 running/waiting/done；仍消毒到 [a-z] 防止异常值注入 class。
@@ -161,6 +175,20 @@ function renderRows(rows) {
       div.append(mb);
     }
 
+    // 运行中行：一键「标记完成/清除」——应对 ESC 取消/打断后会话卡在运行中
+    // （Claude Code 打断不发任何 hook，监控收不到信号，只能手动清）。
+    if (r.status === "running") {
+      const cb = document.createElement("div");
+      cb.className = "clearb";
+      cb.textContent = "✓";
+      cb.title = "标记完成/清除（用于已取消但仍显示运行中的会话）";
+      cb.addEventListener("click", (e) => {
+        e.stopPropagation();
+        postStatus(r.id, "done");
+      });
+      div.append(cb);
+    }
+
     rowsEl.appendChild(div);
   });
 }
@@ -193,6 +221,7 @@ async function tick() {
         base + freshDone.length * DONE_FLASH_MS,
         Date.now() + DONE_FLASH_MAX_MS,
       );
+      for (const id of freshDone) doneFlashIds.set(id, Date.now() + DONE_FLASH_MS); // 行闪动
       chimeDone(); // 轻短「叮」
     }
     prevDone = doneIds;

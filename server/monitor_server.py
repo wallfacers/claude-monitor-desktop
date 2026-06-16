@@ -7,15 +7,25 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class StatusStore:
     """In-memory table of Claude Code window statuses, keyed by session_id."""
 
-    def __init__(self, stale_sec=21600):
+    def __init__(self, stale_sec=21600, auto_done_sec=1800):
         # stale_sec 是兜底超时：超过它仍无任何 hook 事件，视为已死/关闭
         # （kill-9/关终端 不会触发 SessionEnd）。默认 6h，远大于「卡住」分钟级阈值。
         self.stale_sec = stale_sec
+        # auto_done_sec：running 超过它仍无任何回调 -> 视为完成（取消/打断/已死）。
+        # Claude Code 打断(ESC)不发任何 hook，无法区分「取消」与「卡住」，故用超长兜底；
+        # 阈值远晚于「卡住」警告(10min)，让真正卡住的长任务先以 running+警告 暴露足够久。
+        self.auto_done_sec = auto_done_sec
         self._windows = {}
 
     def update(self, session_id, status, cwd, now):
-        name = os.path.basename(cwd.rstrip("/")) if cwd else session_id
         win = self._windows.get(session_id)
+        # 名称取自 cwd；无 cwd（如手动清除的 POST）则保留原名，不退化成 session_id
+        if cwd:
+            name = os.path.basename(cwd.rstrip("/"))
+        elif win:
+            name = win["name"]
+        else:
+            name = session_id
 
         # SessionEnd：会话真正结束（/exit、Ctrl+C、Ctrl+D、超时…）-> 移除窗口
         if status == "end":
@@ -74,15 +84,20 @@ class StatusStore:
         windows = []
         statuses = set()
         for win in visible:
-            statuses.add(win["status"])
+            idle = int(now - win["last_seen"])
+            status = win["status"]
+            # 自动兜底：running 且超长无任何回调 -> 视为完成（取消/打断/已死）。
+            # 不改存储状态：若工具心跳恢复，下次自然又显示 running（长任务自愈）。
+            if status == "running" and idle >= self.auto_done_sec:
+                status = "done"
+            statuses.add(status)
             name = win["name"]
             if basename_counts[name] > 1:
                 name = "{}#{}".format(name, win["id"][:5])
-            idle = int(now - win["last_seen"])
             windows.append(
                 {
                     "id": win["id"],
-                    "status": win["status"],
+                    "status": status,
                     "name": name,
                     "run_sec": int(now - win["run_started"]),
                     "idle_sec": idle,
@@ -158,7 +173,8 @@ def main():
     host = os.environ.get("MONITOR_HOST", "127.0.0.1")
     port = int(os.environ.get("MONITOR_PORT", "8787"))
     stale = int(os.environ.get("MONITOR_STALE_SEC", "21600"))
-    server = create_server(host, port, store=StatusStore(stale_sec=stale))
+    auto_done = int(os.environ.get("MONITOR_AUTODONE_SEC", "1800"))
+    server = create_server(host, port, store=StatusStore(stale_sec=stale, auto_done_sec=auto_done))
     print("claude-monitor server on http://{}:{}  (GET /state, POST /api/window-status)".format(host, port))
     try:
         server.serve_forever()

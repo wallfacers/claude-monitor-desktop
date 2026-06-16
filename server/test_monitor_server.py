@@ -174,6 +174,37 @@ class StatusStoreTest(unittest.TestCase):
         state = store.get_state(now=2000.0)  # idle 1000 > 600
         self.assertEqual(state["windows"], [])
 
+    def test_running_auto_done_after_autodone_threshold(self):
+        # 打断/取消后 running 无任何回调 -> 超过 auto_done_sec 自动显示为完成
+        store = StatusStore(stale_sec=21600, auto_done_sec=1800)
+        store.update("s1", "running", "/tmp/a", now=1000.0)
+
+        # 卡住警告窗口内仍是 running
+        self.assertEqual(store.get_state(now=1000.0 + 700)["windows"][0]["status"], "running")
+        # 超过 auto_done_sec -> done
+        win = store.get_state(now=1000.0 + 1800)["windows"][0]
+        self.assertEqual(win["status"], "done")
+
+    def test_auto_done_self_heals_when_heartbeat_resumes(self):
+        # 自动转完成不改存储状态：心跳恢复(长任务工具返回) -> 又显示 running
+        store = StatusStore(stale_sec=21600, auto_done_sec=1800)
+        store.update("s1", "running", "/tmp/a", now=1000.0)
+        self.assertEqual(store.get_state(now=1000.0 + 1900)["windows"][0]["status"], "done")
+
+        store.update("s1", "heartbeat", "/tmp/a", now=1000.0 + 2000)
+        win = store.get_state(now=1000.0 + 2000)["windows"][0]
+        self.assertEqual(win["status"], "running")
+
+    def test_update_without_cwd_keeps_existing_name(self):
+        # 手动清除的 POST 不带 cwd -> 名称保留，不退化成 session_id
+        store = StatusStore(stale_sec=600)
+        store.update("s1", "running", "/home/u/myproj", now=1000.0)
+        store.update("s1", "done", "", now=1100.0)  # 无 cwd
+
+        win = store.get_state(now=1100.0)["windows"][0]
+        self.assertEqual(win["status"], "done")
+        self.assertEqual(win["name"], "myproj")
+
     def test_session_start_registers_ready_window(self):
         store = StatusStore(stale_sec=600)
         store.update("s1", "start", "/tmp/proj", now=1000.0)
