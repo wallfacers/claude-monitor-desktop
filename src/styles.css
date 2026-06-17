@@ -1,4 +1,5 @@
-:root{ --running:#3ddc84; --waiting:#ffc83d; --done:#4aa8ff; --txt:#e6e9ef; --dim:#9aa3b2; }
+:root{ --running:#3ddc84; --waiting:#ffc83d; --done:#4aa8ff; --txt:#e6e9ef; --dim:#9aa3b2;
+  --cat-base:#ffd6e7; --cat-blush:#ff9ec4; --cat-bow:#ff7fb0; --cat-hat:#b9a7ff; --cat-star:#fff2a8; }
 *{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
 /* 收起/展开必须只显示一个：[hidden] 要压过 .minibar 的 display 设置 */
 [hidden]{display:none!important}
@@ -73,3 +74,76 @@ html,body{background:transparent;overflow:hidden}
 .rstat{font-size:11px;font-weight:600}.rstat.running{color:var(--running)}.rstat.waiting{color:var(--waiting)}.rstat.done{color:var(--done)}
 .timer{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:46px;text-align:right}
 .timer.warn{color:var(--waiting);font-weight:700}
+
+/* ===== 猫咪形态 ===== */
+/* 容器:与 minibar/panel 并列,[hidden] 互斥。整只可拖;内部装饰不吃鼠标,事件落到拖动区。
+   单击展开由 app.js 在 #cat 上监听 click。投影/动画位移 ≤ #app 16px padding 防裁切。 */
+.cat{position:relative;display:inline-block;cursor:grab;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))}
+.cat:active{cursor:grabbing}
+.cat > *{pointer-events:none}
+.cat-svg{display:block;overflow:visible}
+/* 各部件的 transform 锚点 */
+.cat-tail{transform-box:fill-box;transform-origin:left center}
+.cat-paw{transform-box:fill-box;transform-origin:center bottom;opacity:0}
+.cat-head{transform-box:fill-box;transform-origin:50% 70%}
+.cat-eye{transform-box:fill-box;transform-origin:center}
+.cat-bow{transform-box:fill-box;transform-origin:64px 22px}
+.cat-hat,.cat-sparkle{opacity:0}
+
+/* 眨眼:全程随机眨(idle 态被眯眼覆盖) */
+.cat-eye{animation:catBlink 4.5s infinite}
+@keyframes catBlink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+
+/* —— 各 pose 动画 —— */
+/* 运行:埋头微微点头 + 尾巴欢快摆动 */
+.cat--running .cat-head{animation:catBob 1.6s ease-in-out infinite}
+.cat--running .cat-tail{animation:catWag .6s ease-in-out infinite}
+@keyframes catBob{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+@keyframes catWag{0%,100%{transform:rotate(0)}50%{transform:rotate(-16deg)}}
+
+/* 待确认:身体催促抖动 + 举爪挥手 + 慢摆尾 */
+.cat--waiting{animation:catShake .5s ease-in-out infinite}
+.cat--waiting .cat-paw{opacity:1;animation:catWave .5s ease-in-out infinite}
+.cat--waiting .cat-tail{animation:catWag 1s ease-in-out infinite}
+@keyframes catShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+@keyframes catWave{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(20deg)}}
+
+/* 卡住:歪头发懵,慢 */
+.cat--stuck .cat-head{animation:catTilt 2.4s ease-in-out infinite}
+@keyframes catTilt{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(-9deg)}}
+
+/* 完成:满足弹跳 + 星星闪 */
+.cat--done{animation:catHop 1.2s ease-in-out infinite}
+.cat--done .cat-sparkle{animation:catTwinkle 1.2s ease-in-out infinite}
+@keyframes catHop{0%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}60%{transform:translateY(0)}}
+@keyframes catTwinkle{0%,100%{opacity:0;transform:scale(.6)}50%{opacity:1;transform:scale(1)}}
+
+/* 空闲:呼吸起伏 + 眯眼 + 戴睡帽 */
+.cat--idle{animation:catBreathe 3.4s ease-in-out infinite;transform-origin:bottom center}
+.cat--idle .cat-eye{animation:none;transform:scaleY(.18)}
+.cat--idle .cat-hat{opacity:1}
+@keyframes catBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+
+/* 头顶气泡 ! / ? */
+.cat-bubble{position:absolute;top:-2px;right:6px;min-width:18px;height:18px;padding:0 4px;
+  display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:13px;font-weight:800;
+  color:#fff;background:var(--waiting);box-shadow:0 1px 3px rgba(0,0,0,.4)}
+
+/* 角标(右下角数字),配色随状态 */
+.cat-badge{position:absolute;right:2px;bottom:8px;min-width:18px;height:18px;padding:0 5px;
+  display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:11px;font-weight:800;
+  color:#10141c;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.cat-badge--running{background:var(--running)}
+.cat-badge--waiting{background:var(--waiting)}
+.cat-badge--done{background:var(--done)}
+
+/* hover 才显示的三色完整计数(角标只显当前态,这里补全信息,不丢数据) */
+.cat-counts{position:absolute;left:50%;bottom:-6px;transform:translate(-50%,4px);display:flex;gap:6px;
+  padding:3px 7px;border-radius:999px;background:rgba(20,23,30,.82);border:1px solid rgba(255,255,255,.14);
+  opacity:0;pointer-events:none;transition:opacity .14s;white-space:nowrap}
+.cat:hover .cat-counts{opacity:1}
+.cat-counts .cc{display:flex;align-items:center;gap:3px;font-size:11px;font-weight:800;color:var(--txt)}
+.cat-counts .cc i{width:7px;height:7px;border-radius:50%}
+.cat-counts .cc-running i{background:var(--running)}
+.cat-counts .cc-waiting i{background:var(--waiting)}
+.cat-counts .cc-done i{background:var(--done)}
