@@ -265,5 +265,27 @@ if (window.__TAURI__?.event?.listen) {
   });
 }
 
+// 托盘「重配 Claude 钩子」结果反馈：短暂浮窗（内联样式，不依赖 CSS 文件）。
+function flashHookToast(ok) {
+  let t = document.getElementById("hookToast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "hookToast";
+    t.style.cssText =
+      "position:fixed;left:50%;bottom:6px;transform:translateX(-50%);" +
+      "padding:3px 8px;border-radius:6px;font-size:12px;z-index:99;" +
+      "background:rgba(40,40,40,.9);color:#fff;pointer-events:none;" +
+      "opacity:0;transition:opacity .2s";
+    document.body.appendChild(t);
+  }
+  t.textContent = ok ? "✅ Claude 钩子已配置" : "⚠️ 钩子配置失败（见日志）";
+  t.style.opacity = "1";
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => (t.style.opacity = "0"), 2000);
+}
+if (window.__TAURI__?.event?.listen) {
+  window.__TAURI__.event.listen("hooks-configured", (e) => flashHookToast(e.payload));
+}
+
 setInterval(tick, POLL_MS);
 tick();
