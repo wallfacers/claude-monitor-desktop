@@ -84,7 +84,7 @@ npm run tauri build
 
 <details><summary>手动/排查参考（旧写死路径版，已不再需要）</summary>
 
-历史上需要在 `%USERPROFILE%\.claude\settings.json` 的 `hooks` 块手动合并六个事件指向 ps1；现由应用启动自动完成。若需手动核对/排查，六个事件现在统一指向固定路径：
+历史上需要在 `%USERPROFILE%\.claude\settings.json` 的 `hooks` 块手动合并七个事件指向 ps1；现由应用启动自动完成。若需手动核对/排查，七个事件现在统一指向固定路径：
 
 ```
 powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.claude-monitor\report-status.ps1"
@@ -98,7 +98,7 @@ WSL 侧 hooks 已由我配进 WSL `~/.claude/settings.json`（备份在 `setting
 
 旧实现把 `Stop` 当「完成」并按时间清理 → 空闲会话 10min 消失（少算）+ 非正常退出卡 running（多算）。已按真实生命周期重做：
 
-- `SessionStart`→登记(就绪 done) / `UserPromptSubmit`→running / `PostToolUse`→心跳 / `Notification`→waiting / `Stop`→done(保留) / `SessionEnd`→移除
+- `SessionStart`→登记(就绪 done) / `UserPromptSubmit`→running / `PostToolUse`→心跳 / `PermissionRequest`→waiting(即时主信号) / `Notification`→waiting(兜底) / `Stop`→done(保留) / `SessionEnd`→移除
 - `SessionEnd` 覆盖 `/exit`、Ctrl+C、Ctrl+D、超时、`/clear`
 - 兜底 `MONITOR_STALE_SEC`（默认 2h）专杀 `kill -9`/关终端/崩溃残留，不影响分钟级「卡住」判定
 - 已知局限：点终端 X / `kill -9` 不触发 SessionEnd，残留到 2h 兜底；日常用 Ctrl+C 或 `/exit` 即时移除，或点行内 `✕` 立即移除

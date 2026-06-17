@@ -8,11 +8,13 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{path::BaseDirectory, Manager, Runtime};
 
-/// 6 个目标事件：Claude Code 生命周期钩子。
+/// 7 个目标事件：Claude Code 生命周期钩子。
+/// PermissionRequest 用于即时侦测「待确认」（权限框一出现即触发，无 Notification 的已知延迟）。
 const HOOK_EVENTS: &[&str] = &[
     "SessionStart",
     "UserPromptSubmit",
     "PostToolUse",
+    "PermissionRequest",
     "Notification",
     "Stop",
     "SessionEnd",
@@ -29,7 +31,7 @@ fn command_for(ps1_path: &str) -> String {
     )
 }
 
-/// 幂等合并：确保 6 个目标事件存在且 command 指向 ps1_path；
+/// 幂等合并：确保 7 个目标事件存在且 command 指向 ps1_path；
 /// 含旧写死路径的本应用条目会被迁移成新固定路径；保留所有其他配置。
 /// existing 非对象（含损坏/null）降级为空对象。
 pub fn merge_hooks(existing: Value, ps1_path: &str) -> Value {
@@ -170,7 +172,7 @@ mod tests {
     const PS1: &str = r"C:\Users\me\.claude-monitor\report-status.ps1";
 
     #[test]
-    fn empty_settings_adds_all_six_events() {
+    fn empty_settings_adds_all_seven_events() {
         let out = merge_hooks(json!({}), PS1);
         let hooks = out.get("hooks").expect("hooks present");
         for ev in HOOK_EVENTS.iter().copied() {
@@ -243,7 +245,7 @@ mod tests {
 
     #[test]
     fn corrupt_non_object_input_degrades_to_clean() {
-        // 数组（非对象）→ 降级为只含 6 事件的合法结构，不 panic
+        // 数组（非对象）→ 降级为只含 7 事件的合法结构，不 panic
         let out = merge_hooks(json!([1, 2, 3]), PS1);
         assert!(out.is_object());
         assert!(out["hooks"].is_object());

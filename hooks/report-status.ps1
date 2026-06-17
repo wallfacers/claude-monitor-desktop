@@ -12,6 +12,9 @@ try {
         "PostToolUse"      { $status = "heartbeat" }
         "Stop"             { $status = "done" }
         "SessionEnd"       { $status = "end" }
+        # PermissionRequest：权限对话框一出现即触发（即时，无 Notification 的已知延迟）。
+        # 「待确认」最灵敏的信号；批准后的 PostToolUse 心跳会把 waiting 翻回 running。
+        "PermissionRequest" { $status = "waiting" }
         "Notification" {
             # Notification 同时用于「需批准工具调用」和「空闲 60s 等待输入」。
             # 用 notification_type 区分：idle_prompt=已完成在等输入（非待确认），

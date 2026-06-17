@@ -38,7 +38,8 @@ Claude Code(WSL/Windows)  ──hook POST 8787──▶  monitor_server.py(Windo
 | `SessionStart` | start | 登记（就绪） |
 | `UserPromptSubmit` | running | 新一轮开始，重锚计时 |
 | `PostToolUse` | heartbeat | 心跳（兜底识别新一轮 / 卡住判定基准）|
-| `Notification`(`permission_prompt`) | waiting | 需批准工具调用 = 待确认 |
+| `PermissionRequest` | waiting | 权限框一出现即触发 = 待确认（即时，主信号）|
+| `Notification`(`permission_prompt`) | waiting | 需批准工具调用 = 待确认（有已知延迟，兜底）|
 | `Notification`(`idle_prompt`) | done | 空闲等待输入 = 已完成一轮 |
 | `Stop` | done | 一轮结束 |
 | `SessionEnd` | end | 会话结束，移除 |

@@ -16,6 +16,9 @@ try:
         "PostToolUse": "heartbeat",
         "Stop": "done",
         "SessionEnd": "end",
+        # PermissionRequest：权限对话框一出现即触发（即时，无 Notification 的已知延迟）。
+        # 「待确认」最灵敏的信号；批准后的 PostToolUse 心跳会把 waiting 翻回 running。
+        "PermissionRequest": "waiting",
     }.get(ev)
     if ev == "Notification":
         # Notification 同时用于「需批准工具调用」和「空闲 60s 等待输入」。
