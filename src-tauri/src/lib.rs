@@ -103,9 +103,10 @@ pub fn run() {
             let ontop = CheckMenuItemBuilder::with_id("ontop", "始终置顶")
                 .checked(true)
                 .build(app)?;
+            let rehook = MenuItemBuilder::with_id("rehook", "重配 Claude 钩子").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "退出").build(app)?;
             let menu = MenuBuilder::new(app)
-                .items(&[&passthrough, &ontop, &quit])
+                .items(&[&passthrough, &ontop, &rehook, &quit])
                 .build()?;
 
             let win_for_menu = win.clone();
@@ -124,6 +125,11 @@ pub fn run() {
                     "ontop" => {
                         let on = ontop.is_checked().unwrap_or(true);
                         let _ = win_for_menu.set_always_on_top(on);
+                    }
+                    "rehook" => {
+                        // 手动重试落脚本 + 合并 settings.json，并通知前端 toast 反馈。
+                        let ok = hooks::ensure_hooks(app_handle).is_ok();
+                        let _ = win_for_menu.emit("hooks-configured", ok);
                     }
                     "quit" => app_handle.exit(0),
                     _ => {}
