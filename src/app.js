@@ -336,10 +336,13 @@ if (window.__TAURI__?.event?.listen) {
 
 // 外观：启动读持久化值恢复形态；托盘切换时实时响应。无 Tauri（浏览器预览）则保持默认 pill。
 (async () => {
+  if (!window.__TAURI__?.core?.invoke) return; // 浏览器预览:无 Tauri,保持默认 pill
   try {
     const init = await window.__TAURI__.core.invoke("get_appearance");
     if (init) window.__setAppearance(init);
-  } catch (e) {}
+  } catch (e) {
+    console.warn("get_appearance failed", e); // 真·命令出错时可见,不静默吞掉
+  }
 })();
 if (window.__TAURI__?.event?.listen) {
   window.__TAURI__.event.listen("set-mode", (e) => window.__setAppearance(e.payload));
