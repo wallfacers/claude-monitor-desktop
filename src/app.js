@@ -1,5 +1,6 @@
 import { buildViewModel, newlyWaiting, newlyDone, statusLabel } from "./render.js";
 import { buildCatVM } from "./cat.js";
+import { shouldArmCollapse } from "./auto-collapse.js";
 
 const POLL_MS = 1000;
 const STUCK_SEC = 600; // 10 分钟，后续可从设置读
@@ -18,6 +19,9 @@ let prevDone = []; // 上一轮的完成 id（用于检测「新完成」）
 let seededDone = false; // 首次轮询只播种、不为已存在的完成补闪
 let doneFlashUntil = 0; // 收起条完成闪烁截止时间戳（ms），多个完成累加
 const doneFlashIds = new Map(); // 每个新完成会话的行闪动截止时间戳（展开详情用）
+const AUTO_COLLAPSE_MS = 10000; // 警告解决后,延迟多少毫秒自动收回列表
+let listAutoExpanded = false;   // 当前 list 是否「黄色警告自动展开」(区别于用户手动 ▾)
+let autoCollapseTimer = null;   // 延迟收回计时器(幂等:仅在 null 时才启动,避免每秒重置)
 
 // 手动操作：上报某会话状态（如把卡在运行中的取消会话标记完成）。失败静默。
 function postStatus(id, status) {
@@ -117,8 +121,37 @@ function setMode(mode) {
   });
 }
 
+// 清掉挂起的延迟收回计时器并复位来源标志。收回/切形态时调用,防残留再触发。
+function clearAutoCollapse() {
+  if (autoCollapseTimer !== null) {
+    clearTimeout(autoCollapseTimer);
+    autoCollapseTimer = null;
+  }
+  listAutoExpanded = false;
+}
+
+// 幂等调度延迟收回。放 tick 末尾,与 refreshAlert 用同一个 waitingActive 表达式,
+// 保证「黄闪消失」与「开始计时」同步。waitingActive 持续为 0 时不会每秒重置计时器。
+function maybeScheduleAutoCollapse() {
+  const waitingActive = lastWaitingIds.filter((id) => !muted.has(id)).length;
+  if (
+    shouldArmCollapse({ waitingActive, currentMode, listAutoExpanded, appearance })
+  ) {
+    if (autoCollapseTimer === null) {
+      autoCollapseTimer = setTimeout(() => {
+        autoCollapseTimer = null;
+        collapseToBase(); // 内部 clearAutoCollapse 会复位标志
+      }, AUTO_COLLAPSE_MS);
+    }
+  } else if (autoCollapseTimer !== null) {
+    clearTimeout(autoCollapseTimer);
+    autoCollapseTimer = null;
+  }
+}
+
 // 收起目标 = 用户的基础态(appearance)。list 自身为基础态时即留在 list。
 function collapseToBase() {
+  clearAutoCollapse(); // 收回时清挂起计时 + 复位来源标志,防残留
   setMode(appearance);
 }
 
@@ -147,6 +180,7 @@ function renderCat(vm) {
 window.__setAppearance = (mode) => {
   if (!MODE_EL[mode]) return;
   appearance = mode;
+  clearAutoCollapse(); // 切基础态:作废当前展开来源 + 清挂起计时
   setMode(mode);
 };
 
@@ -247,7 +281,10 @@ function renderRows(rows) {
 }
 
 // ▾ 展开详情；✕ 收起到基础态。整条药丸/标题栏/猫的拖动由 data-tauri-drag-region 处理。
-$("#expand").addEventListener("click", () => setMode("list"));
+$("#expand").addEventListener("click", () => {
+  listAutoExpanded = false; // 用户主动 ▾ 展开,不纳入自动收回
+  setMode("list");
+});
 $("#collapse").addEventListener("click", () => collapseToBase());
 // 单击猫 -> 展开列表(拖动由 data-tauri-drag-region 处理;拖动时浏览器不触发 click)。
 catEl.addEventListener("click", () => setMode("list"));
@@ -287,9 +324,13 @@ async function tick() {
     const freshActive = freshWaiting.filter((id) => !muted.has(id));
     if (freshActive.length > 0) {
       chimeWaiting(); // 「叮咚」双音（默认开），已消音的不响
+      listAutoExpanded = true; // 标记:此次展开是警告触发(解决后可自动收回)
       setMode("list"); // 有新待确认 -> 自动展开列表
     }
     prevWaiting = waitingIds;
+
+    // 警告解决(活动待确认归零)后,延迟收回「自动展开的列表」(基础态非 list 时)。
+    maybeScheduleAutoCollapse();
 
     // 内容变化后重新贴合窗口尺寸（计数位数/行数变化都会改变尺寸）。
     requestAnimationFrame(fitWindow);
