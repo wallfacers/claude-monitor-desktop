@@ -1,4 +1,5 @@
 import { buildViewModel, newlyWaiting, newlyDone, statusLabel } from "./render.js";
+import { buildCatVM } from "./cat.js";
 
 const POLL_MS = 1000;
 const STUCK_SEC = 600; // 10 分钟，后续可从设置读
@@ -8,7 +9,8 @@ const DONE_FLASH_MS = 6000; // 单个任务完成贡献的闪烁时长
 const DONE_FLASH_MAX_MS = 30000; // 累加上限：多个完成时间累加但封顶，避免一直闪
 
 let prevWaiting = [];
-let panelOpen = false;
+let currentMode = "pill"; // 当前显示形态:pill|list|cat
+let appearance = "pill";  // 用户选定的基础态(pill|cat;list 也可作常驻),Task 4 持久化恢复
 const muted = new Set(); // 被「消音」的待确认 session id（如 Claude 已 Cooked 完成但报成 waiting）
 let lastVm = null;
 let lastWaitingIds = [];
@@ -29,8 +31,13 @@ function postStatus(id, status) {
 const $ = (s) => document.querySelector(s);
 const panel = $("#panel");
 const minibar = $("#minibar");
+const catEl = $("#cat");
+const catBadge = $(".cat-badge");
+const catBubble = $(".cat-bubble");
 const rowsEl = $("#rows");
 const offlineEl = $("#offline");
+const MODE_EL = { pill: minibar, list: panel, cat: catEl };
+const POSE_CLASSES = ["cat--waiting", "cat--stuck", "cat--running", "cat--done", "cat--idle"];
 
 // ---- 提示音：用 Web Audio 合成，无需音频文件，且能区分听感 ----
 let audioCtx = null;
@@ -75,12 +82,12 @@ const TW = window.__TAURI__ && window.__TAURI__.window;
 
 function fitWindow() {
   if (!TW || !TW.getCurrentWindow || !TW.LogicalSize) return;
-  const el = panelOpen ? panel : minibar;
+  const el = MODE_EL[currentMode] || minibar;
   if (!el || el.hidden) return;
 
   // 展开态：按最长项目名动态加宽面板，避免被省略号截断；上下限保护防超长名字撑爆。
   // 先回基础宽再测（可增可减）：scrollWidth 是全文本宽，clientWidth 是可见宽，差即被截像素。
-  if (panelOpen) {
+  if (currentMode === "list") {
     const MIN_W = 280, MAX_W = 360;
     panel.style.width = MIN_W + "px";
     let extra = 0;
@@ -97,21 +104,58 @@ function fitWindow() {
   TW.getCurrentWindow().setSize(new TW.LogicalSize(w, h)).catch(() => {});
 }
 
-// 缩放(收起) ↔ 详细(展开) 切换：只显示一个，出现时播放 scale+fade 进入动效。
-function setExpanded(open) {
-  if (open === panelOpen) return;
-  panelOpen = open;
-  const show = open ? panel : minibar;
-  const hide = open ? minibar : panel;
-
-  hide.hidden = true;
-  show.hidden = false;
+// 三态切换 pill|list|cat:只显示一个,出现时播放 scale+fade 进入动效。
+function setMode(mode) {
+  if (mode === currentMode || !MODE_EL[mode]) return;
+  currentMode = mode;
+  const show = MODE_EL[mode];
+  for (const [k, el] of Object.entries(MODE_EL)) el.hidden = k !== mode;
   show.classList.add("mode-enter"); // 起始 opacity0 + scale(.9)
+  if (mode === "cat" && lastVm) renderCat(lastVm); // 切到猫立即渲染当前状态
   requestAnimationFrame(() => {
     fitWindow(); // 先按目标尺寸贴合窗口
     requestAnimationFrame(() => show.classList.remove("mode-enter")); // 再过渡到 1
   });
 }
+
+// 收起目标 = 用户的基础态(appearance)。list 自身为基础态时即留在 list。
+function collapseToBase() {
+  setMode(appearance);
+}
+
+// 把猫的「表演」写进 DOM:pose 类、角标、头顶气泡、hover 三色计数。
+function renderCat(vm) {
+  const waitingActive = lastWaitingIds.filter((id) => !muted.has(id)).length;
+  const c = buildCatVM(vm, { waitingActive });
+  catEl.classList.remove(...POSE_CLASSES);
+  catEl.classList.add("cat--" + c.pose);
+  // 角标
+  if (c.badgeText) {
+    catBadge.hidden = false;
+    catBadge.textContent = c.badgeText;
+    catBadge.className = "cat-badge cat-badge--" + c.badgeColor;
+  } else {
+    catBadge.hidden = true;
+  }
+  // 头顶气泡
+  if (c.bubble) {
+    catBubble.hidden = false;
+    catBubble.textContent = c.bubble;
+  } else {
+    catBubble.hidden = true;
+  }
+  // hover 三色计数(信息不丢)
+  catEl.querySelectorAll("[data-cc]").forEach((b) => {
+    b.textContent = c.counts[b.getAttribute("data-cc")] ?? 0;
+  });
+}
+
+// 供 Task 4 托盘/启动调用:设置基础态并立即切换显示。
+window.__setAppearance = (mode) => {
+  if (!MODE_EL[mode]) return;
+  appearance = mode;
+  setMode(mode);
+};
 
 // 重新评估收起条闪烁：待确认（黄，持续，需操作）优先；否则完成（蓝，短暂，到点自动停）。
 function refreshAlert() {
@@ -209,9 +253,11 @@ function renderRows(rows) {
   });
 }
 
-// ⌄ 展开详情；✕ 收起。整条药丸/标题栏的拖动由 HTML data-tauri-drag-region 处理。
-$("#expand").addEventListener("click", () => setExpanded(true));
-$("#collapse").addEventListener("click", () => setExpanded(false));
+// ▾ 展开详情；✕ 收起到基础态。整条药丸/标题栏/猫的拖动由 data-tauri-drag-region 处理。
+$("#expand").addEventListener("click", () => setMode("list"));
+$("#collapse").addEventListener("click", () => collapseToBase());
+// 单击猫 -> 展开列表(拖动由 data-tauri-drag-region 处理;拖动时浏览器不触发 click)。
+catEl.addEventListener("click", () => setMode("list"));
 
 async function tick() {
   try {
@@ -221,6 +267,7 @@ async function tick() {
 
     const vm = buildViewModel(state, STUCK_SEC);
     render(vm);
+    if (currentMode === "cat") renderCat(vm);
 
     const { freshWaiting, waitingIds } = newlyWaiting(prevWaiting, state);
     // 不再 waiting 的 session 解除消音：下次再 waiting 会重新提醒。
@@ -247,7 +294,7 @@ async function tick() {
     const freshActive = freshWaiting.filter((id) => !muted.has(id));
     if (freshActive.length > 0) {
       chimeWaiting(); // 「叮咚」双音（默认开），已消音的不响
-      setExpanded(true); // 有新待确认 -> 自动展开
+      setMode("list"); // 有新待确认 -> 自动展开列表
     }
     prevWaiting = waitingIds;
 
