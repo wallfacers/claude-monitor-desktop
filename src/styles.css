@@ -11,7 +11,7 @@ html,body{background:transparent;overflow:hidden}
 /* padding = 窗口四周透明留白，必须 ≥ 投影/闪烁环的扩散半径，否则投影被窗口直角边裁切成「虚影」 */
 #app{padding:16px;display:inline-block}
 /* 缩放(收起) ↔ 详细(展开) 切换动效：scale + fade */
-#minibar,#panel{transition:opacity .16s ease, transform .16s ease;transform-origin:top left}
+#minibar,#panel,#cat{transition:opacity .16s ease, transform .16s ease;transform-origin:top left}
 .mode-enter{opacity:0;transform:scale(.9)}
 /* 拖动区用抓手光标(grab/grabbing)，不用丑丑的十字(move) */
 /* 投影扩散半径(≈blur+|offset|) 必须 ≤ #app padding(16px)，否则被窗口直角边裁切出虚影 */
