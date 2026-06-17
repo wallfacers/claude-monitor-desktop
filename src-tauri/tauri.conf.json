@@ -31,7 +31,8 @@
     "active": true,
     "targets": "all",
     "resources": {
-      "../server/monitor_server.py": "monitor_server.py"
+      "../server/monitor_server.py": "monitor_server.py",
+      "../hooks/report-status.ps1": "hooks/report-status.ps1"
     },
     "icon": [
       "icons/32x32.png",
