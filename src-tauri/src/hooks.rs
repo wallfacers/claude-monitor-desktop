@@ -4,6 +4,9 @@
 //! 只是 Windows 侧 claude 不上报，应用本身照常运行。
 
 use serde_json::{json, Value};
+use std::fs;
+use std::path::PathBuf;
+use tauri::{path::BaseDirectory, Manager, Runtime};
 
 /// 6 个目标事件：Claude Code 生命周期钩子。
 const HOOK_EVENTS: &[&str] = &[
@@ -79,6 +82,78 @@ pub fn merge_hooks(existing: Value, ps1_path: &str) -> Value {
         }
     }
     root
+}
+
+fn user_profile() -> Option<PathBuf> {
+    std::env::var_os("USERPROFILE").map(PathBuf::from)
+}
+
+/// 固定落点：%USERPROFILE%\.claude-monitor\report-status.ps1
+fn target_ps1_path() -> Option<PathBuf> {
+    Some(user_profile()?.join(".claude-monitor").join("report-status.ps1"))
+}
+
+/// %USERPROFILE%\.claude\settings.json
+fn claude_settings_path() -> Option<PathBuf> {
+    Some(user_profile()?.join(".claude").join("settings.json"))
+}
+
+/// release：resources 内 hooks/report-status.ps1；dev：回退 ../hooks/report-status.ps1。
+fn packed_ps1_source<R: Runtime, M: Manager<R>>(app: &M) -> Option<PathBuf> {
+    if let Ok(p) = app
+        .path()
+        .resolve("hooks/report-status.ps1", BaseDirectory::Resource)
+    {
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    // dev：cwd 通常是 src-tauri/，hooks 在上一级。
+    let dev = PathBuf::from("../hooks/report-status.ps1");
+    if dev.exists() {
+        return Some(dev);
+    }
+    None
+}
+
+/// 落脚本到固定用户目录（目录不存在则建；内容一致则跳过，变了则覆盖）。
+fn install_ps1<R: Runtime, M: Manager<R>>(app: &M) -> Option<PathBuf> {
+    let dst = target_ps1_path()?;
+    let src = packed_ps1_source(app)?;
+    if let Some(dir) = dst.parent() {
+        let _ = fs::create_dir_all(dir);
+    }
+    let need_copy = match (fs::read(&dst), fs::read(&src)) {
+        (Ok(a), Ok(b)) => a != b,
+        _ => true, // 目标不存在或读失败 → 拷
+    };
+    if need_copy {
+        let _ = fs::copy(&src, &dst);
+    }
+    Some(dst)
+}
+
+/// 落脚本 + 幂等合并 settings.json。失败返回 Err（不 panic）。
+pub fn ensure_hooks<R: Runtime, M: Manager<R>>(app: &M) -> Result<(), String> {
+    let dst = install_ps1(app)
+        .ok_or_else(|| "无法定位 USERPROFILE 或 ps1 源".to_string())?;
+    // Windows command 行用反斜杠
+    let ps1_str = dst.to_string_lossy().replace('/', "\\");
+
+    let settings = claude_settings_path()
+        .ok_or_else(|| "无法定位 USERPROFILE".to_string())?;
+
+    // 读：不存在/损坏 → {}。
+    let raw = fs::read_to_string(&settings).unwrap_or_else(|_| "{}".to_string());
+    let existing: Value = serde_json::from_str(&raw).unwrap_or_else(|_| json!({}));
+
+    // 备份原始内容（即便损坏也存一份，防丢失）。
+    let _ = fs::write(settings.with_extension("json.monitorbak"), &raw);
+
+    let merged = merge_hooks(existing, &ps1_str);
+    let out = serde_json::to_string_pretty(&merged).map_err(|e| e.to_string())?;
+    fs::write(&settings, out).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[cfg(test)]
