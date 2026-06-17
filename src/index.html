@@ -34,63 +34,65 @@
       </div>
       <div id="rows" class="rows"></div>
     </div>
-    <!-- 猫咪形态:整只可拖动(data-tauri-drag-region);单击展开列表(JS 绑定) -->
+    <!-- 猫咪形态:胖猫,整只可拖动(data-tauri-drag-region);单击展开列表(JS 绑定)。
+         三个状态数字(运行绿/等待黄/完成蓝)始终显示在肚子上;姿态/动作反映最高优先级状态。 -->
     <div id="cat" class="cat" data-tauri-drag-region title="按住拖动 · 单击展开" hidden>
-      <svg class="cat-svg" viewBox="0 0 100 110" width="76" height="84" data-tauri-drag-region>
+      <svg class="cat-svg" viewBox="0 0 100 100" width="80" height="80" data-tauri-drag-region>
         <!-- 尾巴(摆动) -->
-        <path class="cat-tail" d="M70 86 q24 2 22 -22 q-2 -10 -8 -12"
-              fill="none" stroke="var(--cat-base)" stroke-width="9" stroke-linecap="round"/>
-        <!-- 身体 -->
-        <ellipse class="cat-body" cx="50" cy="86" rx="22" ry="18" fill="var(--cat-base)"/>
-        <!-- 举起的爪子(waiting 时挥手) -->
-        <ellipse class="cat-paw" cx="30" cy="74" rx="7" ry="9" fill="var(--cat-base)"/>
+        <path class="cat-tail" d="M80 82 q17 -2 13 -19 q-3 -11 -12 -11"
+              fill="none" stroke="var(--cat-base)" stroke-width="10" stroke-linecap="round"/>
+        <!-- 胖身体 -->
+        <path class="cat-body" d="M50 40 C20 40 12 66 17 81 C20 93 36 97 50 97 C64 97 80 93 83 81 C88 66 80 40 50 40 Z" fill="var(--cat-base)"/>
+        <!-- 前爪(底部两只) -->
+        <ellipse cx="33" cy="94" rx="8" ry="5" fill="var(--cat-base)"/>
+        <ellipse cx="67" cy="94" rx="8" ry="5" fill="var(--cat-base)"/>
+        <!-- 举起的爪子(waiting 时挥手,默认隐形) -->
+        <ellipse class="cat-paw" cx="20" cy="56" rx="7" ry="9" fill="var(--cat-base)"/>
         <!-- 头(含耳/眼/腮红/睡帽) -->
         <g class="cat-head">
           <!-- 耳朵 -->
-          <polygon class="cat-ear" points="30,30 26,8 48,24" fill="var(--cat-base)"/>
-          <polygon class="cat-ear" points="70,30 74,8 52,24" fill="var(--cat-base)"/>
-          <polygon points="32,27 30,15 42,24" fill="var(--cat-blush)"/>
-          <polygon points="68,27 70,15 58,24" fill="var(--cat-blush)"/>
+          <polygon class="cat-ear" points="32,26 27,4 50,20" fill="var(--cat-base)"/>
+          <polygon class="cat-ear" points="68,26 73,4 50,20" fill="var(--cat-base)"/>
+          <polygon points="34,23 31,11 45,20" fill="var(--cat-blush)"/>
+          <polygon points="66,23 69,11 55,20" fill="var(--cat-blush)"/>
           <!-- 脸 -->
-          <circle cx="50" cy="46" r="27" fill="var(--cat-base)"/>
+          <circle cx="50" cy="32" r="23" fill="var(--cat-base)"/>
           <!-- 腮红 -->
-          <ellipse class="cat-blush-l" cx="34" cy="54" rx="6" ry="4" fill="var(--cat-blush)" opacity=".75"/>
-          <ellipse class="cat-blush-r" cx="66" cy="54" rx="6" ry="4" fill="var(--cat-blush)" opacity=".75"/>
+          <ellipse class="cat-blush-l" cx="34" cy="40" rx="5.5" ry="3.5" fill="var(--cat-blush)" opacity=".75"/>
+          <ellipse class="cat-blush-r" cx="66" cy="40" rx="5.5" ry="3.5" fill="var(--cat-blush)" opacity=".75"/>
           <!-- 眼睛(眨眼/眯眼靠 transform: scaleY) -->
-          <ellipse class="cat-eye cat-eye-l" cx="40" cy="46" rx="3.2" ry="5.2" fill="#3a3340"/>
-          <ellipse class="cat-eye cat-eye-r" cx="60" cy="46" rx="3.2" ry="5.2" fill="#3a3340"/>
+          <ellipse class="cat-eye cat-eye-l" cx="41" cy="31" rx="3" ry="4.6" fill="#3a3340"/>
+          <ellipse class="cat-eye cat-eye-r" cx="59" cy="31" rx="3" ry="4.6" fill="#3a3340"/>
           <!-- 鼻 + 嘴 -->
-          <path d="M47 55 h6 l-3 3 z" fill="#d98aa6"/>
-          <path d="M44 58 q6 6 12 0" fill="none" stroke="#3a3340" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M47 39 h6 l-3 3 z" fill="#d98aa6"/>
+          <path d="M44 42 q6 5 12 0" fill="none" stroke="#3a3340" stroke-width="1.6" stroke-linecap="round"/>
           <!-- 蝴蝶结(常驻,右耳旁) -->
           <g class="cat-bow">
-            <path d="M64 22 l8 -5 v10 z" fill="var(--cat-bow)"/>
-            <path d="M64 22 l8 5 v-10 z" fill="var(--cat-bow)"/>
-            <circle cx="64" cy="22" r="2.5" fill="#fff" opacity=".9"/>
+            <path d="M66 14 l8 -5 v10 z" fill="var(--cat-bow)"/>
+            <path d="M66 14 l8 5 v-10 z" fill="var(--cat-bow)"/>
+            <circle cx="66" cy="14" r="2.5" fill="#fff" opacity=".9"/>
           </g>
           <!-- 睡帽(仅 idle 显示,默认 hidden) -->
           <g class="cat-hat">
-            <path d="M24 18 q26 -22 52 0 z" fill="var(--cat-hat)"/>
-            <path d="M76 18 q14 -2 12 12 q-8 2 -12 -4 z" fill="var(--cat-hat)"/>
-            <circle cx="88" cy="30" r="4" fill="#fff"/>
+            <path d="M26 6 q24 -20 48 0 z" fill="var(--cat-hat)"/>
+            <path d="M74 6 q13 -2 11 11 q-7 2 -11 -4 z" fill="var(--cat-hat)"/>
+            <circle cx="85" cy="17" r="4" fill="#fff"/>
           </g>
         </g>
         <!-- 完成时的星星(默认隐形,done pose 闪一下) -->
         <g class="cat-sparkle">
-          <path d="M20 24 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2 z" fill="var(--cat-star)"/>
-          <path d="M82 60 l1.5 3.5 3.5 1.5 -3.5 1.5 -1.5 3.5 -1.5 -3.5 -3.5 -1.5 3.5 -1.5 z" fill="var(--cat-star)"/>
+          <path d="M16 18 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2 z" fill="var(--cat-star)"/>
+          <path d="M84 50 l1.5 3.5 3.5 1.5 -3.5 1.5 -1.5 3.5 -1.5 -3.5 -3.5 -1.5 3.5 -1.5 z" fill="var(--cat-star)"/>
+        </g>
+        <!-- 肚子上的三状态数字(三角簇:运行在上,等待/完成在下)。0 由 JS 加 .zero 变淡。 -->
+        <g class="cat-belly">
+          <text class="bnum bnum-running" data-cc="running" x="50" y="60">0</text>
+          <text class="bnum bnum-waiting" data-cc="waiting" x="37" y="78">0</text>
+          <text class="bnum bnum-done"    data-cc="done"    x="63" y="78">0</text>
         </g>
       </svg>
       <!-- 头顶气泡(! / ?) -->
       <div class="cat-bubble" hidden></div>
-      <!-- 角标数字 -->
-      <div class="cat-badge" hidden></div>
-      <!-- hover 展开的三色完整计数 -->
-      <div class="cat-counts">
-        <span class="cc cc-running"><i></i><b data-cc="running">0</b></span>
-        <span class="cc cc-waiting"><i></i><b data-cc="waiting">0</b></span>
-        <span class="cc cc-done"><i></i><b data-cc="done">0</b></span>
-      </div>
     </div>
   </div>
   <script type="module" src="app.js"></script>
