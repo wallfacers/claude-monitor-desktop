@@ -84,6 +84,12 @@ pub fn run() {
             // 确保后端在跑。
             ensure_server(app);
 
+            // 确保 Windows 侧 Claude 钩子已配置（落 ps1 + 合并 settings.json）。
+            // 失败不致命：只记日志，不阻断启动。
+            if let Err(e) = hooks::ensure_hooks(app) {
+                eprintln!("[claude-monitor] ensure_hooks skipped: {e}");
+            }
+
             // 开机自启（幂等，重复 enable 无副作用）。
             {
                 use tauri_plugin_autostart::ManagerExt;
