@@ -6,6 +6,8 @@
 //! - 托盘菜单：鼠标穿透 / 始终置顶 / 退出
 //! - 记住窗口位置（tauri-plugin-window-state）、开机自启（tauri-plugin-autostart）
 
+mod hooks;
+
 use std::net::TcpStream;
 use std::process::Command;
 use std::time::Duration;
