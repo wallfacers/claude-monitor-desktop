@@ -334,5 +334,16 @@ if (window.__TAURI__?.event?.listen) {
   window.__TAURI__.event.listen("hooks-configured", (e) => flashHookToast(e.payload));
 }
 
+// 外观：启动读持久化值恢复形态；托盘切换时实时响应。无 Tauri（浏览器预览）则保持默认 pill。
+(async () => {
+  try {
+    const init = await window.__TAURI__.core.invoke("get_appearance");
+    if (init) window.__setAppearance(init);
+  } catch (e) {}
+})();
+if (window.__TAURI__?.event?.listen) {
+  window.__TAURI__.event.listen("set-mode", (e) => window.__setAppearance(e.payload));
+}
+
 setInterval(tick, POLL_MS);
 tick();

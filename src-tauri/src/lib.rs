@@ -8,17 +8,49 @@
 
 mod hooks;
 
+use std::fs;
 use std::net::TcpStream;
+use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 
 use tauri::{
-    menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder},
+    menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder},
     tray::TrayIconBuilder,
     Emitter, Manager,
 };
 
 const MONITOR_PORT: u16 = 8787;
+
+/// 外观持久化文件路径：<app_config_dir>/appearance。
+fn appearance_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+    app.path().app_config_dir().ok().map(|d| d.join("appearance"))
+}
+
+/// 读取已保存的外观；非法/缺失一律回退 "pill"。
+fn read_appearance(app: &tauri::AppHandle) -> String {
+    appearance_path(app)
+        .and_then(|p| fs::read_to_string(p).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| matches!(s.as_str(), "pill" | "list" | "cat"))
+        .unwrap_or_else(|| "pill".to_string())
+}
+
+/// 写入外观（尽力而为，失败不致命）。
+fn write_appearance(app: &tauri::AppHandle, mode: &str) {
+    if let Some(p) = appearance_path(app) {
+        if let Some(dir) = p.parent() {
+            let _ = fs::create_dir_all(dir);
+        }
+        let _ = fs::write(p, mode);
+    }
+}
+
+/// 前端启动时拉取当前外观，据此设置初始形态。
+#[tauri::command]
+fn get_appearance(app: tauri::AppHandle) -> String {
+    read_appearance(&app)
+}
 
 /// 端口已监听则认为 server 已在跑；否则原生 spawn python 拉起。
 /// 同机原生子进程，不随会话回收（不同于 wsl.exe 后台进程）。
@@ -68,6 +100,7 @@ fn python_bin() -> &'static str {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![get_appearance])
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -96,7 +129,21 @@ pub fn run() {
                 let _ = app.autolaunch().enable();
             }
 
-            // 托盘菜单：穿透 / 置顶 / 退出。
+            // 托盘菜单：外观（单选） / 穿透 / 置顶 / 退出。
+            let cur = read_appearance(app.handle());
+            let m_pill = CheckMenuItemBuilder::with_id("mode-pill", "药丸")
+                .checked(cur == "pill")
+                .build(app)?;
+            let m_list = CheckMenuItemBuilder::with_id("mode-list", "列表")
+                .checked(cur == "list")
+                .build(app)?;
+            let m_cat = CheckMenuItemBuilder::with_id("mode-cat", "猫咪")
+                .checked(cur == "cat")
+                .build(app)?;
+            let appearance_menu = SubmenuBuilder::new(app, "外观")
+                .items(&[&m_pill, &m_list, &m_cat])
+                .build()?;
+
             let passthrough = CheckMenuItemBuilder::with_id("passthrough", "鼠标穿透")
                 .checked(false)
                 .build(app)?;
@@ -106,7 +153,7 @@ pub fn run() {
             let rehook = MenuItemBuilder::with_id("rehook", "重配 Claude 钩子").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "退出").build(app)?;
             let menu = MenuBuilder::new(app)
-                .items(&[&passthrough, &ontop, &rehook, &quit])
+                .items(&[&appearance_menu, &passthrough, &ontop, &rehook, &quit])
                 .build()?;
 
             let win_for_menu = win.clone();
@@ -114,25 +161,38 @@ pub fn run() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Claude Monitor")
                 .menu(&menu)
-                .on_menu_event(move |app_handle, event| match event.id().as_ref() {
-                    "passthrough" => {
-                        // CheckMenuItem 点击后状态已翻转，读取最新值。
-                        let on = passthrough.is_checked().unwrap_or(false);
-                        let _ = win_for_menu.set_ignore_cursor_events(on);
-                        // 通知前端：穿透时降低不透明度作视觉提示。
-                        let _ = win_for_menu.emit("passthrough", on);
+                .on_menu_event(move |app_handle, event| {
+                    // 外观单选：选中目标项、互斥取消其余、持久化、通知前端切形态。
+                    let set_mode = |mode: &str| {
+                        let _ = m_pill.set_checked(mode == "pill");
+                        let _ = m_list.set_checked(mode == "list");
+                        let _ = m_cat.set_checked(mode == "cat");
+                        write_appearance(app_handle, mode);
+                        let _ = win_for_menu.emit("set-mode", mode);
+                    };
+                    match event.id().as_ref() {
+                        "mode-pill" => set_mode("pill"),
+                        "mode-list" => set_mode("list"),
+                        "mode-cat" => set_mode("cat"),
+                        "passthrough" => {
+                            // CheckMenuItem 点击后状态已翻转，读取最新值。
+                            let on = passthrough.is_checked().unwrap_or(false);
+                            let _ = win_for_menu.set_ignore_cursor_events(on);
+                            // 通知前端：穿透时降低不透明度作视觉提示。
+                            let _ = win_for_menu.emit("passthrough", on);
+                        }
+                        "ontop" => {
+                            let on = ontop.is_checked().unwrap_or(true);
+                            let _ = win_for_menu.set_always_on_top(on);
+                        }
+                        "rehook" => {
+                            // 手动重试落脚本 + 合并 settings.json，并通知前端 toast 反馈。
+                            let ok = hooks::ensure_hooks(app_handle).is_ok();
+                            let _ = win_for_menu.emit("hooks-configured", ok);
+                        }
+                        "quit" => app_handle.exit(0),
+                        _ => {}
                     }
-                    "ontop" => {
-                        let on = ontop.is_checked().unwrap_or(true);
-                        let _ = win_for_menu.set_always_on_top(on);
-                    }
-                    "rehook" => {
-                        // 手动重试落脚本 + 合并 settings.json，并通知前端 toast 反馈。
-                        let ok = hooks::ensure_hooks(app_handle).is_ok();
-                        let _ = win_for_menu.emit("hooks-configured", ok);
-                    }
-                    "quit" => app_handle.exit(0),
-                    _ => {}
                 })
                 .build(app)?;
 
