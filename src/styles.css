@@ -110,7 +110,7 @@ html,body{background:transparent;overflow:hidden}
 
 /* 卡住:歪头发懵,慢 */
 .cat--stuck .cat-head{animation:catTilt 2.4s ease-in-out infinite}
-@keyframes catTilt{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(-9deg)}}
+@keyframes catTilt{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(-12deg)}}
 
 /* 完成:满足弹跳 + 星星闪 */
 .cat--done{animation:catHop 1.2s ease-in-out infinite}
