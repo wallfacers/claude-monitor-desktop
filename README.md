@@ -64,6 +64,8 @@ npm run tauri dev      # 开发运行（自动原生拉起 server + 弹出悬浮
 npm run tauri build    # 打包 .msi/.exe -> src-tauri\target\release\bundle\
 ```
 
+应用首次启动会自动把上报脚本落到 `%USERPROFILE%\.claude-monitor\` 并配置 Windows 侧 Claude Code 钩子（保留你已有的 hooks、自动迁移旧路径），无需手动改路径。
+
 ## 测试
 
 ```bash

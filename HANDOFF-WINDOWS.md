@@ -78,23 +78,21 @@ npm run tauri build
 
 ## 让 Windows 侧的 Claude Code 也计数（WSL N + Windows M）
 
-WSL 的 claude 已上报。Windows 的 claude 要单独配 hooks，用 `hooks/report-status.ps1`。
-在 **`%USERPROFILE%\.claude\settings.json`** 的 `hooks` 块**合并**（保留已有项），六个事件都指向 ps1：
+应用**首次启动即自动完成** Windows 侧钩子配置：把 `report-status.ps1` 落到固定目录 `%USERPROFILE%\.claude-monitor\`，并幂等合并进 `%USERPROFILE%\.claude\settings.json`（写前备份为 `settings.json.monitorbak`，保留你已有的其他 hooks；旧写死路径会被自动迁移）。**无需手动改任何路径**，换机/搬家/重装都不影响。
 
-```json
-{
-  "hooks": {
-    "SessionStart":     [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "UserPromptSubmit": [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "PostToolUse":      [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "Notification":     [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "Stop":             [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ],
-    "SessionEnd":       [ { "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"D:\\develop\\java\\source\\claude-monitor-desktop\\hooks\\report-status.ps1\"" } ] } ]
-  }
-}
+若 claude 未上报，点托盘**「重配 Claude 钩子」**手动重试（右下角会有 toast 反馈）。
+
+<details><summary>手动/排查参考（旧写死路径版，已不再需要）</summary>
+
+历史上需要在 `%USERPROFILE%\.claude\settings.json` 的 `hooks` 块手动合并六个事件指向 ps1；现由应用启动自动完成。若需手动核对/排查，六个事件现在统一指向固定路径：
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.claude-monitor\report-status.ps1"
 ```
 
-配好后重启 claude 窗口加载新 hooks。WSL 侧 hooks 已由我配进 WSL `~/.claude/settings.json`（备份在 `settings.json.monitorbak`）。
+</details>
+
+WSL 侧 hooks 已由我配进 WSL `~/.claude/settings.json`（备份在 `settings.json.monitorbak`）。
 
 ## 计数准确性（会话生命周期，已修复）
 
