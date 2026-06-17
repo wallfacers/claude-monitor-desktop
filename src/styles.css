@@ -85,10 +85,15 @@ html,body{background:transparent;overflow:hidden}
 /* 各部件的 transform 锚点 */
 .cat-tail{transform-box:fill-box;transform-origin:left center}
 .cat-paw{transform-box:fill-box;transform-origin:center bottom;opacity:0}
-.cat-head{transform-box:fill-box;transform-origin:50% 70%}
+.cat-head{transform-box:fill-box;transform-origin:50% 80%}
 .cat-eye{transform-box:fill-box;transform-origin:center}
-.cat-bow{transform-box:fill-box;transform-origin:64px 22px}
+.cat-bow{transform-box:fill-box;transform-origin:66px 14px}
 .cat-hat,.cat-sparkle{opacity:0}
+/* 肚子三状态数字(三角簇,始终显示;0 由 JS 加 .zero 变淡) */
+.cat-belly .bnum{font:800 13px "Segoe UI",system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;
+  paint-order:stroke;stroke:rgba(255,255,255,.55);stroke-width:.6px}
+.bnum-running{fill:var(--running)} .bnum-waiting{fill:var(--waiting)} .bnum-done{fill:var(--done)}
+.cat-belly .bnum.zero{opacity:.26}
 
 /* 眨眼:全程随机眨(idle 态被眯眼覆盖) */
 .cat-eye{animation:catBlink 4.5s infinite}
@@ -124,26 +129,7 @@ html,body{background:transparent;overflow:hidden}
 .cat--idle .cat-hat{opacity:1}
 @keyframes catBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
 
-/* 头顶气泡 ! / ? */
-.cat-bubble{position:absolute;top:-2px;right:6px;min-width:18px;height:18px;padding:0 4px;
+/* 头顶气泡 ! / ?(待确认/卡住时强调) */
+.cat-bubble{position:absolute;top:-2px;right:2px;min-width:18px;height:18px;padding:0 4px;
   display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:13px;font-weight:800;
   color:#fff;background:var(--waiting);box-shadow:0 1px 3px rgba(0,0,0,.4)}
-
-/* 角标(右下角数字),配色随状态 */
-.cat-badge{position:absolute;right:2px;bottom:8px;min-width:18px;height:18px;padding:0 5px;
-  display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:11px;font-weight:800;
-  color:#10141c;box-shadow:0 1px 3px rgba(0,0,0,.4)}
-.cat-badge--running{background:var(--running)}
-.cat-badge--waiting{background:var(--waiting)}
-.cat-badge--done{background:var(--done)}
-
-/* hover 才显示的三色完整计数(角标只显当前态,这里补全信息,不丢数据) */
-.cat-counts{position:absolute;left:50%;bottom:-6px;transform:translate(-50%,4px);display:flex;gap:6px;
-  padding:3px 7px;border-radius:999px;background:rgba(20,23,30,.82);border:1px solid rgba(255,255,255,.14);
-  opacity:0;pointer-events:none;transition:opacity .14s;white-space:nowrap}
-.cat:hover .cat-counts{opacity:1}
-.cat-counts .cc{display:flex;align-items:center;gap:3px;font-size:11px;font-weight:800;color:var(--txt)}
-.cat-counts .cc i{width:7px;height:7px;border-radius:50%}
-.cat-counts .cc-running i{background:var(--running)}
-.cat-counts .cc-waiting i{background:var(--waiting)}
-.cat-counts .cc-done i{background:var(--done)}

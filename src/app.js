@@ -32,7 +32,6 @@ const $ = (s) => document.querySelector(s);
 const panel = $("#panel");
 const minibar = $("#minibar");
 const catEl = $("#cat");
-const catBadge = $(".cat-badge");
 const catBubble = $(".cat-bubble");
 const rowsEl = $("#rows");
 const offlineEl = $("#offline");
@@ -129,24 +128,18 @@ function renderCat(vm) {
   const c = buildCatVM(vm, { waitingActive });
   catEl.classList.remove(...POSE_CLASSES);
   catEl.classList.add("cat--" + c.pose);
-  // 角标
-  if (c.badgeText) {
-    catBadge.hidden = false;
-    catBadge.textContent = c.badgeText;
-    catBadge.className = "cat-badge cat-badge--" + c.badgeColor;
-  } else {
-    catBadge.hidden = true;
-  }
-  // 头顶气泡
+  // 头顶气泡(! / ?)
   if (c.bubble) {
     catBubble.hidden = false;
     catBubble.textContent = c.bubble;
   } else {
     catBubble.hidden = true;
   }
-  // hover 三色计数(信息不丢)
-  catEl.querySelectorAll("[data-cc]").forEach((b) => {
-    b.textContent = c.counts[b.getAttribute("data-cc")] ?? 0;
+  // 肚子上三状态数字:始终显示;为 0 的加 .zero 变淡(信息不丢)
+  catEl.querySelectorAll("[data-cc]").forEach((t) => {
+    const n = c.counts[t.getAttribute("data-cc")] ?? 0;
+    t.textContent = n;
+    t.classList.toggle("zero", n === 0);
   });
 }
 
