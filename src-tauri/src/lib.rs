@@ -82,7 +82,18 @@ fn ensure_server(app: &tauri::App) {
     let py = resolve_python();
     monitor_log(&format!("ensure_server: python={py}"));
 
-    match Command::new(&py).arg(&script).spawn() {
+    let mut cmd = Command::new(&py);
+    cmd.arg(&script);
+    // Windows: python.exe 是控制台程序；由无控制台的 GUI exe（release windows_subsystem）
+    // spawn 时，Windows 会为子进程新建控制台窗口（黑框），用户误关即杀掉 server。
+    // CREATE_NO_WINDOW 抑制该窗口，让 server 安静后台运行。
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    match cmd.spawn() {
         Ok(child) => {
             let pid = child.id();
             monitor_log(&format!("ensure_server: spawned python pid={pid}, polling healthz"));
