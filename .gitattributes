@@ -1,0 +1,5 @@
+# WSL / bash 脚本必须保持 LF 行尾。
+# Windows git 默认 core.autocrlf=true 会把 .sh 检出成 CRLF，导致 WSL bash 执行时
+# 报 "numeric argument required"（如 `exit 0\r` 带回车的 token 不是合法数字），
+# 进而让 Claude Code 的 UserPromptSubmit 等 hook 非零退出、阻断输入。
+*.sh text eol=lf

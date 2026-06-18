@@ -12,7 +12,7 @@ use std::fs;
 use std::net::TcpStream;
 use std::path::PathBuf;
 use std::process::Command;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::{
     menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder},
@@ -52,36 +52,60 @@ fn get_appearance(app: tauri::AppHandle) -> String {
     read_appearance(&app)
 }
 
-/// 端口已监听则认为 server 已在跑；否则原生 spawn python 拉起。
-/// 同机原生子进程，不随会话回收（不同于 wsl.exe 后台进程）。
+/// 确保本地 monitor server 在跑（127.0.0.1:8787）：已在跑则跳过；否则原生 spawn python。
+/// 关键：每一步都落日志到 monitor.log，spawn 后后台轮询 healthz —— 自启场景下 server
+/// 起没起来、为什么没起来，全靠日志排查（release 是无控制台子系统，eprintln! 不可见）。
 fn ensure_server(app: &tauri::App) {
-    if TcpStream::connect_timeout(
-        &(format!("127.0.0.1:{MONITOR_PORT}").parse().unwrap()),
-        Duration::from_millis(300),
-    )
-    .is_ok()
-    {
+    monitor_log("ensure_server: start");
+    let addr: std::net::SocketAddr = format!("127.0.0.1:{MONITOR_PORT}")
+        .parse()
+        .expect("valid loopback addr");
+
+    // probe 闭包用 move 自持 addr 副本（SocketAddr: Copy），便于稍后安全 move 进后台线程
+    //（否则线程会在本函数返回后访问悬垂的栈上 addr）。
+    let probe = move || TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok();
+    if probe() {
+        monitor_log("ensure_server: server already running, skip");
         return;
     }
 
-    // release: 取打包进资源目录的 monitor_server.py；dev: 回退到项目内相对路径。
-    let bundled = app
+    // server 脚本：release 取打包 resource；dev 回退项目内相对路径（cwd 通常 src-tauri/）。
+    let script = app
         .path()
         .resolve("monitor_server.py", tauri::path::BaseDirectory::Resource)
         .ok()
-        .filter(|p| p.exists());
+        .filter(|p| p.exists())
+        .unwrap_or_else(|| PathBuf::from("../server/monitor_server.py"));
+    monitor_log(&format!("ensure_server: script={}", script.display()));
 
-    let mut cmd = Command::new(python_bin());
-    match bundled {
-        Some(path) => {
-            cmd.arg(path);
+    // python：$MONITOR_PYTHON 覆盖（绝对路径可绕开 PATH 顺序 / WindowsApps 存根），否则默认命令。
+    let py = resolve_python();
+    monitor_log(&format!("ensure_server: python={py}"));
+
+    match Command::new(&py).arg(&script).spawn() {
+        Ok(child) => {
+            let pid = child.id();
+            monitor_log(&format!("ensure_server: spawned python pid={pid}, polling healthz"));
+            // spawn 成功 ≠ server 真就绪：python 可能因存根/脚本错/端口占用立即退出。
+            // 后台轮询 healthz（不阻塞窗口显示），结果落日志。
+            std::thread::spawn(move || {
+                if probe_retry(probe, 20, 250) {
+                    // ~5s 窗口，够 python 冷启动并 bind 端口
+                    monitor_log("ensure_server: healthz OK, server up");
+                } else {
+                    monitor_log(
+                        "WARN ensure_server: spawned but healthz unreachable after ~5s. \
+                         多半 python 没真正起来（WindowsApps 存根 / 脚本错 / 端口占用）。\
+                         设环境变量 MONITOR_PYTHON=<绝对 python.exe 路径> 后重试。",
+                    );
+                }
+            });
         }
-        None => {
-            // dev 下 cwd 通常是 src-tauri/，server 在上一级
-            cmd.arg("../server/monitor_server.py");
-        }
+        Err(e) => monitor_log(&format!(
+            "WARN ensure_server: spawn python FAILED: {e}. \
+             设环境变量 MONITOR_PYTHON=<绝对 python.exe 路径> 后重试。"
+        )),
     }
-    let _ = cmd.spawn(); // 失败不致命：前端会显示「离线」，用户也可手动起 server
 }
 
 /// Windows/通用用 `python`（若用 Python Launcher 可改 `py`）；
@@ -95,6 +119,57 @@ fn python_bin() -> &'static str {
     {
         "python"
     }
+}
+
+/// 选定用来拉起 server 的 python：$MONITOR_PYTHON 覆盖优先（指向绝对路径可彻底绕开
+/// PATH 顺序 / WindowsApps 存根问题——存根执行会弹 Store 或立即退出，server 不起）；
+/// 无覆盖则用平台默认命令名。
+fn resolve_python() -> String {
+    if let Some(p) = std::env::var_os("MONITOR_PYTHON") {
+        return p.to_string_lossy().into_owned();
+    }
+    python_bin().to_string()
+}
+
+/// 最多 tries 次轮询；check 一次返回 true 即判定成功并立即停止，全部失败返回 false。
+/// sleep_ms>0 时两次探测之间睡眠（生产约 250ms；测试传 0 避免拖慢）。
+fn probe_retry<F: Fn() -> bool>(check: F, tries: u16, sleep_ms: u64) -> bool {
+    for i in 0..tries {
+        if check() {
+            return true;
+        }
+        if sleep_ms > 0 && i + 1 < tries {
+            std::thread::sleep(Duration::from_millis(sleep_ms));
+        }
+    }
+    false
+}
+
+/// 诊断日志：追加写到 %USERPROFILE%\.claude-monitor\monitor.log。
+/// release 是无控制台子系统(windows_subsystem="windows")，eprintln! 不可见 ——
+/// 自启场景下 server 起没起来、为什么没起来，全靠这个文件排查。
+fn monitor_log(line: &str) {
+    let Some(profile) = std::env::var_os("USERPROFILE") else {
+        return; // 非 Windows / 无 USERPROFILE：无处落盘，放弃（不致命）
+    };
+    let dir = PathBuf::from(profile).join(".claude-monitor");
+    let _ = fs::create_dir_all(&dir);
+    use std::io::Write;
+    if let Ok(mut f) = fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(dir.join("monitor.log"))
+    {
+        let _ = writeln!(f, "[{}] {}", timestamp(), line);
+    }
+}
+
+/// Unix 秒时间戳（够排序定位；可读本地时间需 chrono，不为日志引入依赖）。
+fn timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -200,4 +275,71 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    // resolve_python：env MONITOR_PYTHON 覆盖优先（用户可指向绝对路径，绕开 PATH/存根问题）。
+    #[test]
+    fn resolve_python_prefers_env_override() {
+        std::env::set_var("MONITOR_PYTHON", r"C:\some\python.exe");
+        assert_eq!(resolve_python(), r"C:\some\python.exe");
+        std::env::remove_var("MONITOR_PYTHON");
+    }
+
+    #[test]
+    fn resolve_python_defaults_when_no_env() {
+        std::env::remove_var("MONITOR_PYTHON");
+        let got = resolve_python();
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(got, "python3");
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            assert_eq!(got, "python");
+        }
+    }
+
+    // probe_retry：轮询判定健康，命中即停、耗尽即弃。
+    #[test]
+    fn probe_retry_true_when_first_check_succeeds() {
+        assert!(probe_retry(|| true, 3, 0));
+    }
+
+    #[test]
+    fn probe_retry_false_when_all_attempts_fail() {
+        assert!(!probe_retry(|| false, 3, 0));
+    }
+
+    #[test]
+    fn probe_retry_succeeds_on_nth_attempt_and_stops() {
+        let count = AtomicUsize::new(0);
+        let ok = probe_retry(
+            || count.fetch_add(1, Ordering::SeqCst) >= 1, // 第 2 次起 true
+            5,
+            0,
+        );
+        assert!(ok);
+        assert_eq!(count.load(Ordering::SeqCst), 2); // 命中即停，不浪费
+    }
+
+    // monitor_log：追加写到 %USERPROFILE%\.claude-monitor\monitor.log。
+    #[test]
+    fn monitor_log_appends_under_userprofile() {
+        let tmp = std::env::temp_dir().join(format!("cm-test-{}", std::process::id()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        std::env::set_var("USERPROFILE", &tmp);
+        monitor_log("line-one");
+        monitor_log("line-two");
+        let content =
+            std::fs::read_to_string(tmp.join(".claude-monitor").join("monitor.log")).unwrap();
+        assert!(content.contains("line-one"));
+        assert!(content.contains("line-two"));
+        std::env::remove_var("USERPROFILE");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 }
