@@ -11,7 +11,8 @@ mod hooks;
 use std::fs;
 use std::net::TcpStream;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Child, Command};
+use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::{
@@ -50,6 +51,25 @@ fn write_appearance(app: &tauri::AppHandle, mode: &str) {
 #[tauri::command]
 fn get_appearance(app: tauri::AppHandle) -> String {
     read_appearance(&app)
+}
+
+/// 托管在 Tauri state 里的 server 子进程 handle：退出时取出 kill，避免孤儿占用 8787。
+type ServerChild = Mutex<Option<Child>>;
+
+/// 退出清理：kill 掉 spawn 的 python server 子进程（若有）。幂等（take 取走后为 None）。
+/// 在托盘「退出」与 RunEvent::Exit 都调用，覆盖所有正常退出路径。
+fn kill_server_child<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(state) = app.try_state::<ServerChild>() {
+        if let Ok(mut guard) = state.lock() {
+            if let Some(mut child) = guard.take() {
+                let pid = child.id();
+                match child.kill() {
+                    Ok(()) => monitor_log(&format!("exit: killed python server pid={pid}")),
+                    Err(e) => monitor_log(&format!("exit: kill python pid={pid} FAILED: {e}")),
+                }
+            }
+        }
+    }
 }
 
 /// 确保本地 monitor server 在跑（127.0.0.1:8787）：已在跑则跳过；否则原生 spawn python。
@@ -96,6 +116,17 @@ fn ensure_server(app: &tauri::App) {
     match cmd.spawn() {
         Ok(child) => {
             let pid = child.id();
+            // 存住 child handle：退出时 kill_server_child 取出 kill，避免孤儿占用 8787。
+            if let Some(state) = app.try_state::<ServerChild>() {
+                if let Ok(mut guard) = state.lock() {
+                    *guard = Some(child);
+                    monitor_log("ensure_server: server child stored (will kill on exit)");
+                } else {
+                    monitor_log("WARN ensure_server: server child state lock failed");
+                }
+            } else {
+                monitor_log("WARN ensure_server: server child state missing");
+            }
             monitor_log(&format!("ensure_server: spawned python pid={pid}, polling healthz"));
             // spawn 成功 ≠ server 真就绪：python 可能因存根/脚本错/端口占用立即退出。
             // 后台轮询 healthz（不阻塞窗口显示），结果落日志。
@@ -200,6 +231,10 @@ pub fn run() {
             // 用纯透明窗口（不上 acrylic）：窗口按内容自适应尺寸，空白区域即桌面，
             // 圆角干净；面板/药丸自身用 CSS 半透明背景。
 
+            // 注册 server 子进程 handle 的托管 state：退出时 kill_server_child 取出 kill，
+            // 避免 python 孤儿进程继续占用 8787。
+            app.manage(Mutex::<Option<Child>>::new(None));
+
             // 确保后端在跑。
             ensure_server(app);
 
@@ -276,7 +311,10 @@ pub fn run() {
                             let ok = hooks::ensure_hooks(app_handle).is_ok();
                             let _ = win_for_menu.emit("hooks-configured", ok);
                         }
-                        "quit" => app_handle.exit(0),
+                        "quit" => {
+                            kill_server_child(app_handle);
+                            app_handle.exit(0);
+                        }
                         _ => {}
                     }
                 })
@@ -284,8 +322,15 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // 所有正常退出路径都经此：kill python server 子进程，避免孤儿占用 8787。
+            // 与托盘 quit 菜单的显式 kill 互补（幂等，take 取走后重复调用安全）。
+            if let tauri::RunEvent::Exit = event {
+                kill_server_child(app_handle);
+            }
+        });
 }
 
 #[cfg(test)]
